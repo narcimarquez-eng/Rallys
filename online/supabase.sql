@@ -18,6 +18,12 @@ create table if not exists public.vueltas (
 
 create index if not exists vueltas_clasificacion on public.vueltas (escenario, version, tiempo);
 
+-- Que la API (la clave pública) vea la tabla: solo leer y añadir. Hace falta en los proyectos creados sin «Conceda
+-- acceso a la API a las nuevas tablas automáticamente»; en los demás no estorba.
+grant usage on schema public to anon, authenticated;
+revoke all on public.vueltas from anon, authenticated;
+grant select, insert on public.vueltas to anon, authenticated;
+
 alter table public.vueltas enable row level security;
 
 drop policy if exists "leer la clasificación" on public.vueltas;

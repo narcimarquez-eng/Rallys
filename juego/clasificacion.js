@@ -46,7 +46,10 @@ export function guardarLocal(reg) {
 // --- Online (Supabase / PostgREST) ---
 async function pedir(cfg, ruta, opciones) {
   const r = await fetch(cfg.url + '/rest/v1/' + ruta, Object.assign({}, opciones, {
-    headers: Object.assign({ apikey: cfg.clave, Authorization: 'Bearer ' + cfg.clave, 'Content-Type': 'application/json' }, (opciones && opciones.headers) || {})
+    headers: Object.assign({ apikey: cfg.clave, 'Content-Type': 'application/json' },
+      // la clave «anon» antigua es un JWT (eyJ…) y va también como Bearer; la nueva «publishable» (sb_publishable_…) no
+      /^eyJ/.test(cfg.clave) ? { Authorization: 'Bearer ' + cfg.clave } : {},
+      (opciones && opciones.headers) || {})
   }));
   if (!r.ok) throw new Error('El servidor de la clasificación respondió ' + r.status + ': ' + (await r.text()).slice(0, 200));
   return r.status === 204 ? null : r.json();

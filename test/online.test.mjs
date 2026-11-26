@@ -54,7 +54,7 @@ test('clasificación online contra un Supabase simulado: subir, ver el puesto y 
   globalThis.fetch = async (url, op) => {
     const u = new URL(url);
     assert.equal(u.pathname, '/rest/v1/vueltas');
-    assert.equal(op.headers.apikey, 'clave-anon'); assert.equal(op.headers.Authorization, 'Bearer clave-anon');
+    assert.equal(op.headers.apikey, 'clave-anon'); assert.equal(op.headers.Authorization, undefined); // clave nueva (no JWT): solo apikey
     const filtro = f => [...u.searchParams].every(([k, v]) => !v.startsWith('eq.') || String(f[k]) === v.slice(3));
     if (op.method === 'POST') { const f = Object.assign({ id: id++, creado: new Date().toISOString() }, JSON.parse(op.body)); filas.push(f); return new Response(JSON.stringify([{ id: f.id }]), { status: 201 }); }
     const sel = u.searchParams.get('select').split(',');
