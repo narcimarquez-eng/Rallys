@@ -15,7 +15,9 @@ const ALTURA = 1.74;    // m: a esta altura se escalan (el estudio los hace de u
 const VISTA = 230;      // m: grupos más lejos de la cámara, ocultos
 const ANIMA = 130;      // m: más lejos, se dibujan quietos
 const CERCA = 42;       // m: un coche a menos de esto, ¡a celebrar!
-let modelos = null;     // url del índice → promesa de [{ id, escena, clips, escala }]
+const DETALLE = 18;     // m: con la cámara más cerca de un grupo, sus aficionados con la versión «cerca» (cara pintada)
+let modelos = null;     // url del índice → promesa de [{ id, escena, clips, escala, cerca: url }]
+const detalle = new Map(); // url de la versión «cerca» → promesa de { escena, clips }
 
 function cargarModelos(urlIndice) {
   if (!modelos) modelos = new Map();
@@ -28,13 +30,26 @@ function cargarModelos(urlIndice) {
       try {
         const g = await cargador.loadAsync(new URL(a.archivo.replace(/^aldeanos\//, ''), base).href);
         const b = new THREE.Box3().setFromObject(g.scene), alto = b.max.y - b.min.y;
-        g.scene.traverse(o => { if (o.isMesh) { o.frustumCulled = true; o.castShadow = false; o.receiveShadow = false; } });
-        return { id: a.id, escena: g.scene, clips: g.animations, escala: alto > 0.5 ? ALTURA / alto : 1, base: -b.min.y };
+        prepararMallas(g.scene);
+        return { id: a.id, escena: g.scene, clips: g.animations, escala: alto > 0.5 ? ALTURA / alto : 1, base: -b.min.y, cerca: a.cerca ? new URL(a.cerca.replace(/^aldeanos\//, ''), base).href : null };
       } catch (e) { console.warn('Aldeano ' + a.id, e); return null; }
     }));
     return lista.filter(Boolean);
   })());
   return modelos.get(urlIndice);
+}
+
+function prepararMallas(escena) {
+  escena.traverse(o => {
+    if (!o.isMesh) return;
+    o.frustumCulled = true; o.castShadow = false; o.receiveShadow = false;
+    // la cara pintada va pegada encima de la cabeza: que gane siempre
+    for (const m of [].concat(o.material)) if (m && /^CaraPintada/.test(m.name || '')) { m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -4; }
+  });
+}
+function cargarDetalle(url) {
+  if (!detalle.has(url)) detalle.set(url, cargador.loadAsync(url).then(g => { prepararMallas(g.scene); return { escena: g.scene, clips: g.animations }; }).catch(e => { console.warn('Aldeano de cerca', e); return null; }));
+  return detalle.get(url);
 }
 
 // Generador pseudoaleatorio con semilla (la colocación es siempre la misma en cada escenario)
@@ -72,6 +87,46 @@ export class Publico {
     return out;
   }
 
+  reflejos(m) {
+    if (!this.entorno || m.conEntorno) return;
+    m.conEntorno = true;
+    m.escena.traverse(o => { if (o.isMesh) for (const mt of Array.isArray(o.material) ? o.material : [o.material]) if (mt && mt.isMeshStandardMaterial && !/cabello/i.test(mt.name || '')) { mt.envMap = this.entorno; mt.envMapIntensity = 0.9; mt.needsUpdate = true; } });
+  }
+  // Animaciones de un aficionado (las mismas en sus dos versiones)
+  animar(o, clips, rnd) {
+    const mixer = new THREE.AnimationMixer(o), acc = {};
+    for (const cl of clips) acc[cl.name] = mixer.clipAction(cl);
+    return { mixer, acc };
+  }
+  // Cambia a un aficionado a su versión de cerca (o de lejos), con la misma animación en el mismo punto
+  ponerDetalle(pp, si) {
+    if (si && !pp.cercaObj) {
+      if (!pp.cargandoCerca && pp.modelo.cerca) {
+        pp.cargandoCerca = true;
+        cargarDetalle(pp.modelo.cerca).then(d => {
+          if (!d || !this.grupos.length) return;
+          const o = d.escena.clone(true);
+          o.position.copy(pp.o.position); o.quaternion.copy(pp.o.quaternion); o.scale.copy(pp.o.scale);
+          this.reflejos({ escena: o });
+          const a = this.animar(o, d.clips);
+          o.visible = false; pp.o.parent.add(o);
+          pp.cercaObj = o; pp.cercaAn = a;
+        });
+      }
+      return;
+    }
+    if (!pp.cercaObj || pp.enDetalle === si) return;
+    pp.enDetalle = si;
+    const de = si ? pp : pp.cercaAn, a = si ? pp.cercaAn : pp;
+    const cur = si ? pp.actual : pp.actualCerca;
+    const nombre = cur ? cur.getClip().name : 'idle';
+    const ant = de.acc[nombre], nueva = a.acc[nombre] || a.acc.idle;
+    for (const x of Object.values(a.acc)) x.stop();
+    if (nueva) { nueva.play(); nueva.timeScale = pp.velocidad || 1; if (ant) nueva.time = ant.time; }
+    if (si) pp.actualCerca = nueva; else pp.actual = nueva;
+    pp.o.visible = !si; pp.cercaObj.visible = si;
+  }
+
   // ¿Se puede poner a alguien en (x, z)?
   libre(x, z) {
     const P = this.pista, mitad = P.esc.terreno.tam / 2 - 6;
@@ -95,10 +150,9 @@ export class Publico {
     try { mods = await cargarModelos(this.url); } catch (e) { console.warn(e); return 0; }
     if (!mods.length) return 0;
     // reflejos (la escena no tiene mapa de entorno: sin él, el cuero y la tela salen casi negros)
-    if (this.entorno) for (const m of mods) if (!m.conEntorno) {
-      m.conEntorno = true;
-      m.escena.traverse(o => { if (o.isMesh) for (const mt of Array.isArray(o.material) ? o.material : [o.material]) if (mt && mt.isMeshStandardMaterial) { mt.envMap = this.entorno; mt.envMapIntensity = 0.9; mt.needsUpdate = true; } });
-    }
+    for (const m of mods) this.reflejos(m);
+    // la versión de cerca (cara pintada, ~1,2 MB cada uno) se baja después, sin prisa; con calidad baja, nunca
+    this.conDetalle = this.calidad !== 'baja';
     const P = this.pista, p = P.caminos[0], baja = this.calidad === 'baja';
     const cuantos = { meta: baja ? 4 : 8, control: baja ? 2 : 4, curva: baja ? 0 : 4 };
     const rnd = azar(Math.round((p ? p.total : 1) * 1000) ^ 0x5eed);
@@ -130,12 +184,11 @@ export class Publico {
           o.position.set(x, suelo.y + m.base * esc - 0.02, z);
           o.rotation.y = Math.atan2(q.x - x, q.z - z) + (rnd() - 0.5) * 0.6; // mirando a la carretera
           if (!baja) o.traverse(h => { if (h.isMesh) h.castShadow = this.calidad === 'alta'; });
-          const mixer = new THREE.AnimationMixer(o), acc = {};
-          for (const cl of m.clips) acc[cl.name] = mixer.clipAction(cl);
-          const idle = acc.idle || Object.values(acc)[0];
-          if (idle) { idle.play(); idle.time = rnd() * idle.getClip().duration; idle.timeScale = 0.85 + rnd() * 0.3; }
+          const { mixer, acc } = this.animar(o, m.clips);
+          const idle = acc.idle || Object.values(acc)[0], velocidad = 0.85 + rnd() * 0.3;
+          if (idle) { idle.play(); idle.time = rnd() * idle.getClip().duration; idle.timeScale = velocidad; }
           grupo.obj.add(o);
-          grupo.gente.push({ o, mixer, acc, actual: idle, prefiere: rnd() < 0.7 ? 'victory' : 'jump', retraso: rnd() * 0.5, espera: 0 });
+          grupo.gente.push({ o, mixer, acc, modelo: m, velocidad, actual: idle, prefiere: rnd() < 0.7 ? 'victory' : 'jump', retraso: rnd() * 0.5, espera: 0 });
           puestos++; total++;
         }
       }
@@ -155,14 +208,22 @@ export class Publico {
       for (const c of coches) dCoche = Math.min(dCoche, Math.hypot(g.x - c.x, g.z - c.z));
       const celebrar = dCoche < CERCA, calmarse = dCoche > CERCA * 1.6;
       for (const pp of g.gente) {
-        const quiere = celebrar ? (pp.acc[pp.prefiere] || pp.acc.victory) : calmarse ? pp.acc.idle : pp.actual;
-        if (quiere && quiere !== pp.actual) {
+        if (this.conDetalle) {
+          const dp = Math.hypot(pp.o.position.x - cx, pp.o.position.z - cz);
+          if (dp < DETALLE) this.ponerDetalle(pp, true); else if (dp > DETALLE * 1.35) this.ponerDetalle(pp, false);
+        }
+        const an = pp.enDetalle ? pp.cercaAn : pp; // la versión que se ve
+        const nombre = celebrar ? pp.prefiere : calmarse ? 'idle' : (pp.actual ? pp.actual.getClip().name : 'idle');
+        const quiere = an.acc[nombre] || an.acc.victory || an.acc.idle;
+        const actual = pp.enDetalle ? pp.actualCerca : pp.actual;
+        if (quiere && quiere !== actual && (!actual || actual.getClip().name !== nombre)) {
           if ((pp.espera += dt) >= pp.retraso) { // no todos a la vez
-            quiere.reset().play(); if (pp.actual) pp.actual.crossFadeTo(quiere, 0.35, false);
-            pp.actual = quiere; pp.espera = 0;
+            quiere.reset().play(); quiere.timeScale = pp.velocidad; if (actual) actual.crossFadeTo(quiere, 0.35, false);
+            if (pp.enDetalle) pp.actualCerca = quiere; else pp.actual = quiere;
+            pp.espera = 0;
           }
         } else pp.espera = 0;
-        if (dCam < ANIMA) pp.mixer.update(dt);
+        if (dCam < ANIMA) an.mixer.update(dt);
       }
     }
   }

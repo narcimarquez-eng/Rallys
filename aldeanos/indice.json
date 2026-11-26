@@ -1,5 +1,5 @@
 {
-  "origen": "narcimarquez-eng/Armaduras-glb · Generador de aldeanos",
+  "origen": "narcimarquez-eng/Armaduras-glb · Generador de aldeanos (caras amables, pelo de tarjetas y ropa moderna)",
   "animaciones": [
     "idle",
     "victory",
@@ -7,64 +7,74 @@
   ],
   "aldeanos": [
     {
-      "id": "campesino",
-      "archivo": "aldeanos/campesino.glb",
-      "oficio": "Campesino / Granjero",
-      "genero": "hombre"
+      "id": "aficionado",
+      "archivo": "aldeanos/aficionado.glb",
+      "cerca": "aldeanos/aficionado-cerca.glb",
+      "genero": "hombre",
+      "cara": "lam_18_01"
     },
     {
-      "id": "campesina",
-      "archivo": "aldeanos/campesina.glb",
-      "oficio": "Campesino / Granjero",
-      "genero": "mujer"
+      "id": "aficionada",
+      "archivo": "aldeanos/aficionada.glb",
+      "cerca": "aldeanos/aficionada-cerca.glb",
+      "genero": "mujer",
+      "cara": "ref_mujer"
     },
     {
-      "id": "herrero",
-      "archivo": "aldeanos/herrero.glb",
-      "oficio": "Herrero de Forja",
-      "genero": "hombre"
+      "id": "abuelo",
+      "archivo": "aldeanos/abuelo.glb",
+      "cerca": "aldeanos/abuelo-cerca.glb",
+      "genero": "anciano",
+      "cara": "ref_anciano"
     },
     {
-      "id": "tabernera",
-      "archivo": "aldeanos/tabernera.glb",
-      "oficio": "Tabernero / Panadero",
-      "genero": "mujer"
+      "id": "chica-falda",
+      "archivo": "aldeanos/chica-falda.glb",
+      "cerca": "aldeanos/chica-falda-cerca.glb",
+      "genero": "mujer",
+      "cara": "lam_18_11"
     },
     {
-      "id": "mercader",
-      "archivo": "aldeanos/mercader.glb",
-      "oficio": "Mercader de Aldea",
-      "genero": "anciano"
+      "id": "chico-negro",
+      "archivo": "aldeanos/chico-negro.glb",
+      "cerca": "aldeanos/chico-negro-cerca.glb",
+      "genero": "hombre",
+      "cara": "lam_18_02"
     },
     {
-      "id": "herbolaria",
-      "archivo": "aldeanos/herbolaria.glb",
-      "oficio": "Herbolario / Boticario",
-      "genero": "anciana"
+      "id": "motera",
+      "archivo": "aldeanos/motera.glb",
+      "cerca": "aldeanos/motera-cerca.glb",
+      "genero": "mujer",
+      "cara": "lam_20_00"
     },
     {
-      "id": "lenador",
-      "archivo": "aldeanos/lenador.glb",
-      "oficio": "Leñador / Carpintero",
-      "genero": "hombre"
+      "id": "chico-blanco",
+      "archivo": "aldeanos/chico-blanco.glb",
+      "cerca": "aldeanos/chico-blanco-cerca.glb",
+      "genero": "hombre",
+      "cara": "ref_guerrero"
     },
     {
-      "id": "cazadora",
-      "archivo": "aldeanos/cazadora.glb",
-      "oficio": "Cazador / Curtidor",
-      "genero": "mujer"
+      "id": "chica-rosa",
+      "archivo": "aldeanos/chica-rosa.glb",
+      "cerca": "aldeanos/chica-rosa-cerca.glb",
+      "genero": "mujer",
+      "cara": "lam_20_12"
     },
     {
-      "id": "aldeana",
-      "archivo": "aldeanos/aldeana.glb",
-      "oficio": "Aldeana / Tejedora",
-      "genero": "mujer"
+      "id": "fan-rallys",
+      "archivo": "aldeanos/fan-rallys.glb",
+      "cerca": "aldeanos/fan-rallys-cerca.glb",
+      "genero": "hombre",
+      "cara": "lam_18_01"
     },
     {
-      "id": "cazador",
-      "archivo": "aldeanos/cazador.glb",
-      "oficio": "Cazador / Curtidor",
-      "genero": "hombre"
+      "id": "chica-azul",
+      "archivo": "aldeanos/chica-azul.glb",
+      "cerca": "aldeanos/chica-azul-cerca.glb",
+      "genero": "mujer",
+      "cara": "ref_mujer"
     }
   ]
 }

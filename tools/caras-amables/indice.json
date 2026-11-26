@@ -1,0 +1,12 @@
+{
+ "caras": {
+  "ref_mujer": "rostro_ref_mujer.png",
+  "ref_anciano": "rostro_anciano.png",
+  "ref_guerrero": "rostro_guerrero.png",
+  "lam_18_11": "rostro_lam_18_11.png",
+  "lam_20_00": "rostro_lam_20_00.png",
+  "lam_20_12": "rostro_lam_20_12.png",
+  "lam_18_01": "rostro_lam_18_01.png",
+  "lam_18_02": "rostro_lam_18_02.png"
+ }
+}

@@ -52,16 +52,21 @@ posiciones van directas entre jugadores (WebRTC) y la sala usa el mismo Supabase
   (Mundos-, Hacer coches y Armaduras). Se proyectan sobre la chapa (`juego/pegatinas.js`, DecalGeometry de three.js)
   buscándola con rayos, así que valen para cualquier carrocería; la placa de la puerta se baja o se achica hasta que
   cabe entera sin morder la ventanilla. Tu dorsal se elige en el menú («Dorsal», 1–99).
-- **Público**: aldeanos del generador de personajes de
-  [Armaduras-glb](https://github.com/narcimarquez-eng/Armaduras-glb) (campesinos, herrero, tabernera, mercader,
-  herbolaria, leñador, cazadores…) en la **meta**, en cada **control** y en las **curvas más cerradas** (por dentro).
-  Esperan y, cuando pasa un coche, celebran o saltan. Se colocan solos detrás de la cuneta, nunca en el agua, en otro
-  camino ni encima de árboles, rocas, casas o barreras (`juego/publico.js`). Se quitan con la casilla «Público».
-  Los modelos (`aldeanos/*.glb`, ~650 KB cada uno, con 3 animaciones) se exportan con
-  `tools/exportar-aldeanos.cjs` (estudio de Armaduras-glb + gltfpack).
+- **Público**: aficionados hechos con el generador de personajes de
+  [Armaduras-glb](https://github.com/narcimarquez-eng/Armaduras-glb), en versión moderna: **caras amables** (sus
+  rostros pintados sin cicatrices ni adornos y con media sonrisa: `tools/caras-amables.py`), **pelo de láminas con
+  textura de mechones** (la técnica 5 del estudio, con sus peinados modernos) y **ropa de calle** (camisetas y sudaderas
+  de colores, vaqueros, chupa de cuero, zapatillas…). Están en la **meta**, en cada **control** y en las **curvas más
+  cerradas** (por dentro); esperan y, cuando pasa un coche, celebran o saltan. Se colocan solos detrás de la cuneta,
+  nunca en el agua, en otro camino ni encima de árboles, rocas, casas o barreras (`juego/publico.js`). Se quitan con la
+  casilla «Público».
+  Cada uno tiene dos versiones (`aldeanos/`, exportadas con `tools/exportar-aldeanos.cjs`): la de lejos (~700 KB,
+  ligera, solo los ojos pintados) y la de cerca (~1,3 MB, con la cara pintada entera), que se baja después y se pone
+  cuando la cámara está a menos de 18 m (con calidad «Baja», nunca).
 
 ![Pegatinas](docs/capturas/pegatinas-retro.png)
 ![Público en un control](docs/capturas/publico.png)
+![Caras amables, pelo de láminas y ropa moderna](docs/capturas/publico-caras.png)
 
 ## Circuitos
 
