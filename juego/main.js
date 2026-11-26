@@ -17,6 +17,8 @@ import { Particulas } from './particulas.js';
 import { generarCoche, abrirCreador, fotoCoche, semillaNueva, barras } from './generador-coche.js';
 import { Sala, codigoNuevo, normalizarCodigo, idNuevo } from './sala.js';
 import { Rival, ESTADO, FASE, COLORES, ordenar } from './rivales.js';
+import { ponerPegatinas } from './pegatinas.js';
+import { Publico } from './publico.js';
 
 const E = window.Escenario, A = window.Almacen;
 const $ = id => document.getElementById(id);
@@ -28,6 +30,10 @@ const params = new URLSearchParams(location.search);
 // Preferencias
 const prefs = { escenario: null, coche: 'retro', vueltas: 3, camara: 'persecucion', calidad: matchMedia('(pointer: coarse)').matches ? 'baja' : 'media', hora: '', sonido: true, tactil: null, garaje: [], piloto: '', rivales: {}, versiones: {} };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('rallys.prefs') || '{}')); } catch (e) { /* nada */ }
+// Tu dorsal y el color de tus pegatinas (al azar la primera vez) y si hay público en la carretera
+if (!(prefs.dorsal >= 1 && prefs.dorsal <= 99)) prefs.dorsal = 2 + Math.floor(Math.random() * 97);
+if (!/^#[0-9a-f]{6}$/i.test(prefs.colorPegatinas || '')) prefs.colorPegatinas = ['#e8541e', '#1f6fd6', '#1e9e50', '#c0182b', '#7b3fd0', '#f0b400'][Math.floor(Math.random() * 6)];
+if (prefs.publico === undefined) prefs.publico = true;
 const guardarPrefs = () => { try { localStorage.setItem('rallys.prefs', JSON.stringify(prefs)); } catch (e) { /* nada */ } };
 const esTactil = () => prefs.tactil != null ? prefs.tactil : matchMedia('(pointer: coarse)').matches;
 
@@ -199,6 +205,10 @@ $('sel-vueltas').onchange = e => {
 $('sel-camara').onchange = e => { prefs.camara = e.target.value; guardarPrefs(); };
 $('sel-calidad').onchange = e => { prefs.calidad = e.target.value; guardarPrefs(); };
 $('sel-hora').onchange = e => { prefs.hora = e.target.value; guardarPrefs(); };
+$('sel-dorsal').value = String(prefs.dorsal);
+$('sel-dorsal').onchange = e => { const v = Math.round(+e.target.value); if (v >= 1 && v <= 99) { prefs.dorsal = v; guardarPrefs(); sincronizarYo(); } else e.target.value = String(prefs.dorsal); };
+$('sel-publico').checked = !!prefs.publico;
+$('sel-publico').onchange = e => { prefs.publico = e.target.checked; guardarPrefs(); };
 $('btn-abrir-esc').onclick = () => $('fichero-esc').click();
 $('fichero-esc').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
@@ -262,6 +272,7 @@ async function empezarPartida(enGrupo) {
     }
     textoCarga('Cargando el coche…');
     await prepararCoche();
+    await prepararPublico();
     versionEsc = versionEscenario(E, esc);
     if (prefs.versiones[fuenteEsc.id] !== versionEsc) { prefs.versiones[fuenteEsc.id] = versionEsc; guardarPrefs(); }
     if (modoGrupo) {
@@ -284,6 +295,7 @@ async function empezarPartida(enGrupo) {
 
 function construirEscena() {
   if (escena) { scene.clear(); }
+  if (publico) { publico.quitar(); publico = null; claveP = null; }
   aplicarCalidad();
   escena = new Escena3D({
     scene, renderer, editor: false, calidad: prefs.calidad, arbolesRealistas: true, texturasSuelo: true, pueblosReales: true,
@@ -305,13 +317,26 @@ function construirEscena() {
   camaras = new Camaras(camara, pista);
   dibujarMapaBase();
 }
+// El público (aldeanos de Armaduras-glb) en la meta, los controles y las curvas cerradas
+let publico = null, claveP = null;
+async function prepararPublico() {
+  const clave = prefs.publico ? fuenteEsc.id + '|' + prefs.calidad : null;
+  if (clave === claveP) return;
+  if (publico) { publico.quitar(); publico = null; }
+  claveP = clave;
+  if (!clave) return;
+  textoCarga('Llega el público…');
+  if (!entornoCoche) entornoCoche = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+  publico = new Publico({ pista, obstaculos, crono: new Cronometro(esc, pista, 1, '_publico'), scene, calidad: prefs.calidad, url: url('aldeanos/indice.json'), entorno: entornoCoche });
+  try { await Promise.race([publico.construir(), new Promise(r => setTimeout(r, 30000))]); } catch (e) { console.warn('Público', e); }
+}
 let tRehacer = null;
 function rehacerObstaculos() {
   clearTimeout(tRehacer);
   tRehacer = setTimeout(() => { if (obstaculos && escena) obstaculos.construir(escena, THREE); }, 300);
 }
 
-let entornoCoche = null;
+let entornoCoche = null, pegatinasCoche = '';
 // El modelo 3D de un coche del menú (fijo, cargado de un .glb, o generado con su semilla)
 async function modeloDe(c) {
   let fuente = c.bytes || (c.archivo && url(c.archivo));
@@ -333,11 +358,19 @@ function ponerReflejos(objeto) {
   });
 }
 async function prepararCoche() {
-  if (modelo && datosCoche === elegidoCoche && coche && coche.pista === pista) return;
+  if (modelo && datosCoche === elegidoCoche && coche && coche.pista === pista) {
+    if (pegatinasCoche !== prefs.dorsal + prefs.colorPegatinas) { // has cambiado de dorsal
+      try { ponerPegatinas(modelo, { dorsal: prefs.dorsal, color: prefs.colorPegatinas }); } catch (e) { console.warn('Pegatinas', e); }
+      pegatinasCoche = prefs.dorsal + prefs.colorPegatinas;
+    }
+    return;
+  }
   if (modelo) scene.remove(modelo.objeto);
   const c = elegidoCoche;
   modelo = await modeloDe(c);
   ponerReflejos(modelo.objeto);
+  try { ponerPegatinas(modelo, { dorsal: prefs.dorsal, color: prefs.colorPegatinas }); } catch (e) { console.warn('Pegatinas', e); }
+  pegatinasCoche = prefs.dorsal + prefs.colorPegatinas;
   datosCoche = c;
   scene.add(modelo.objeto);
   coche = new Coche(pista, modelo.medidas, c.datos);
@@ -684,8 +717,9 @@ function bucle(ahora) {
   colocarCoche(modelo, coche);
   if (modoGrupo) { enviarEstadoGrupo(dt); const ahoraS = performance.now() / 1000; for (const r of grupo.rivales.values()) r.actualizar(ahoraS); }
   if (fantasma) fantasma.actualizar(estado === 'cuenta' ? 0 : estado === 'carrera' ? crono.t - crono.tVuelta0 : -1);
-  camaras.actualizar(dt, coche, modelo);
+  if (camaraFija) { camara.position.set(...camaraFija.desde); camara.lookAt(...camaraFija.mira); } else camaras.actualizar(dt, coche, modelo);
   escena.actualizar(dt, camara);
+  if (publico) { const cs = [coche]; for (const r of grupo.rivales.values()) if (r.modelo.objeto.visible) cs.push(r.coche); publico.actualizar(dt, camara, cs); }
   escena.setFoco(coche.x, coche.z, prefs.calidad === 'alta' ? 140 : 90);
   if ((tPueblos += dt) > 1) { tPueblos = 0; obstaculos.actualizarPueblos(escena); }
   emitirParticulas(dt);
@@ -697,7 +731,7 @@ function bucle(ahora) {
 }
 
 // Piloto automático (para pruebas y demostraciones): apunta a la pista unos metros por delante y frena antes de las curvas
-let autopiloto = false;
+let autopiloto = false, camaraFija = null; // camaraFija: { desde: [x,y,z], mira: [x,y,z] } (capturas)
 function pilotoAuto() {
   const p = pista.caminos[0];
   if (!p) return { gas: 0, freno: 0, giro: 0, manoFreno: false };
@@ -820,8 +854,8 @@ function colorDe(id) {
 // Lo que publicas en la sala: nombre, coche y lo elegido en el menú (que vale si eres el anfitrión)
 function sincronizarYo() {
   if (!sala) return;
-  const c = { nombre: prefs.piloto || 'Piloto', coche: infoCoche(elegidoCoche), conf: { esc: infoEsc(elegidoEsc), vueltas: prefs.vueltas } };
-  if (JSON.stringify(c) !== JSON.stringify({ nombre: sala.yo.nombre, coche: sala.yo.coche, conf: sala.yo.conf })) sala.publicar(c);
+  const c = { nombre: prefs.piloto || 'Piloto', coche: infoCoche(elegidoCoche), conf: { esc: infoEsc(elegidoEsc), vueltas: prefs.vueltas }, dorsal: prefs.dorsal, colorPegatinas: prefs.colorPegatinas };
+  if (JSON.stringify(c) !== JSON.stringify({ nombre: sala.yo.nombre, coche: sala.yo.coche, conf: sala.yo.conf, dorsal: sala.yo.dorsal, colorPegatinas: sala.yo.colorPegatinas })) sala.publicar(c);
 }
 // Si no eres el anfitrión: su circuito y sus vueltas. → ¿ha cambiado algo?
 function aplicarConf(conf) {
@@ -846,7 +880,7 @@ async function entrarSala(codigo) {
   if (!prefs.piloto) { aviso('Pon antes tu nombre de piloto (arriba, en la clasificación)'); const n = $('nombre-piloto'); if (n) n.focus(); return; }
   if (sala) await salirSala(true);
   grupo.uniendo = true; grupo.error = null; grupo.codigoPedido = codigo; pintarGrupo();
-  const s = new Sala(cfg, { id: idNuevo(), nombre: prefs.piloto, coche: infoCoche(elegidoCoche), conf: { esc: infoEsc(elegidoEsc), vueltas: prefs.vueltas }, fase: 'menu', carrera: null },
+  const s = new Sala(cfg, { id: idNuevo(), nombre: prefs.piloto, coche: infoCoche(elegidoCoche), conf: { esc: infoEsc(elegidoEsc), vueltas: prefs.vueltas }, dorsal: prefs.dorsal, colorPegatinas: prefs.colorPegatinas, fase: 'menu', carrera: null },
     { directa: params.get('p2p') !== '0', depurar: params.has('depurar') });
   s.on('pilotos', alCambiarPilotos).on('mensaje', alMensaje).on('red', () => pintarGrupo())
     .on('estado', (id, v) => { grupo.ultimos.set(id, v); const r = grupo.rivales.get(id); if (r) r.recibir(v, performance.now() / 1000); })
@@ -957,6 +991,7 @@ function sincronizarRivales() {
         try { m = await modeloDe(c); } catch (e) { console.warn('Coche de ' + p.nombre, e); c = indiceCoches.find(x => x.archivo) || elegidoCoche; m = await modeloDe(c); }
         if (!modoGrupo || grupo.carrera !== carrera || !sala || !sala.pilotos.has(p.id)) return;
         ponerReflejos(m.objeto);
+        try { ponerPegatinas(m, { dorsal: p.dorsal || 1, color: p.colorPegatinas || colorDe(p.id) }); } catch (e) { console.warn('Pegatinas', e); }
         const r = new Rival(THREE, scene, { id: p.id, nombre: p.nombre || 'Piloto', color: colorDe(p.id), modelo: m, coche: new Coche(pista, m.medidas, c.datos || {}), colocar: colocarCoche });
         grupo.rivales.set(p.id, r);
       } catch (e) { console.warn(e); } finally { grupo.cargando.delete(p.id); }
@@ -1138,6 +1173,7 @@ window.__rallys = {
   saltarCuenta() { tCuenta = 0.001; },
   // foto de un coche para su tarjeta (tools/exportar-coches-fijos.cjs la guarda junto al .glb)
   async foto(archivo) { const m = await cargarCoche(url(archivo)); return fotoCoche(m.objeto, 480, 266); },
+  get publico() { return publico; }, set camaraFija(v) { camaraFija = v; }, get modelo() { return modelo; },
   get sala() { return sala; }, get grupo() { return grupo; }, get modoGrupo() { return modoGrupo; }, entrarSala, salirSala, empezarGrupo,
   get fantasma() { return fantasma; }, get rival() { return rival; }, get subida() { return subida; }, get versionEsc() { return versionEsc; },
   avanzar, set autopiloto(v) { autopiloto = v; }, get autopiloto() { return autopiloto; }

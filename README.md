@@ -45,6 +45,24 @@ posiciones van directas entre jugadores (WebRTC) y la sala usa el mismo Supabase
 
 ![Carrera en grupo](docs/capturas/grupo-carrera.png)
 
+## Pegatinas y público
+- **Pegatinas de rally** en todos los coches (también los generados y los de los demás en las carreras en grupo):
+  la placa con el **dorsal** y RALLYS en las puertas, el dorsal en el capó (para leerlo de frente), en el techo (para
+  la cámara de persecución) y detrás, la franja **RALLYS** en el parabrisas y los «patrocinadores» de la casa
+  (Mundos-, Hacer coches y Armaduras). Se proyectan sobre la chapa (`juego/pegatinas.js`, DecalGeometry de three.js)
+  buscándola con rayos, así que valen para cualquier carrocería; la placa de la puerta se baja o se achica hasta que
+  cabe entera sin morder la ventanilla. Tu dorsal se elige en el menú («Dorsal», 1–99).
+- **Público**: aldeanos del generador de personajes de
+  [Armaduras-glb](https://github.com/narcimarquez-eng/Armaduras-glb) (campesinos, herrero, tabernera, mercader,
+  herbolaria, leñador, cazadores…) en la **meta**, en cada **control** y en las **curvas más cerradas** (por dentro).
+  Esperan y, cuando pasa un coche, celebran o saltan. Se colocan solos detrás de la cuneta, nunca en el agua, en otro
+  camino ni encima de árboles, rocas, casas o barreras (`juego/publico.js`). Se quitan con la casilla «Público».
+  Los modelos (`aldeanos/*.glb`, ~650 KB cada uno, con 3 animaciones) se exportan con
+  `tools/exportar-aldeanos.cjs` (estudio de Armaduras-glb + gltfpack).
+
+![Pegatinas](docs/capturas/pegatinas-retro.png)
+![Público en un control](docs/capturas/publico.png)
+
 ## Circuitos
 
 Cinco circuitos **diseñados a mano** en Mundos- (`vendor/mundos/js/rally-disenado.js`; plantillas `rally_campos`,
@@ -154,6 +172,7 @@ agarre en tierra, suspensión, frenos y peso, además del tipo de carrocería, l
 | `camaras.js`, `controles.js`, `sonido.js`, `particulas.js` | Persecución/capó/cabina · teclado, mando y táctil · motor, superficie, derrape y golpes con Web Audio (sin archivos) · polvo, barro y salpicaduras. |
 | `main.js` | Menú, carga, bucle (física a 120 Hz), HUD y minimapa, carreras en grupo y pantalla completa. `window.__rallys` deja probarlo desde la consola (piloto automático incluido). |
 | `fantasma.js`, `clasificacion.js` | Fantasmas (grabación, formato compacto y el coche semitransparente) y clasificación online en Supabase ([docs/ONLINE.md](docs/ONLINE.md)). |
+| `pegatinas.js`, `publico.js` | Pegatinas de rally proyectadas sobre la carrocería y el público (aldeanos de Armaduras-glb) en los puntos clave. |
 | `sala.js`, `rivales.js` | Carreras en grupo: la sala (Supabase Realtime + WebRTC) y los coches de los demás, interpolados ([docs/GRUPO.md](docs/GRUPO.md)). |
 
 `npm test` prueba sin navegador una vuelta entera con piloto automático (los 5 controles en orden, el puente por

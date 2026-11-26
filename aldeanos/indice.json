@@ -1,0 +1,70 @@
+{
+  "origen": "narcimarquez-eng/Armaduras-glb · Generador de aldeanos",
+  "animaciones": [
+    "idle",
+    "victory",
+    "jump"
+  ],
+  "aldeanos": [
+    {
+      "id": "campesino",
+      "archivo": "aldeanos/campesino.glb",
+      "oficio": "Campesino / Granjero",
+      "genero": "hombre"
+    },
+    {
+      "id": "campesina",
+      "archivo": "aldeanos/campesina.glb",
+      "oficio": "Campesino / Granjero",
+      "genero": "mujer"
+    },
+    {
+      "id": "herrero",
+      "archivo": "aldeanos/herrero.glb",
+      "oficio": "Herrero de Forja",
+      "genero": "hombre"
+    },
+    {
+      "id": "tabernera",
+      "archivo": "aldeanos/tabernera.glb",
+      "oficio": "Tabernero / Panadero",
+      "genero": "mujer"
+    },
+    {
+      "id": "mercader",
+      "archivo": "aldeanos/mercader.glb",
+      "oficio": "Mercader de Aldea",
+      "genero": "anciano"
+    },
+    {
+      "id": "herbolaria",
+      "archivo": "aldeanos/herbolaria.glb",
+      "oficio": "Herbolario / Boticario",
+      "genero": "anciana"
+    },
+    {
+      "id": "lenador",
+      "archivo": "aldeanos/lenador.glb",
+      "oficio": "Leñador / Carpintero",
+      "genero": "hombre"
+    },
+    {
+      "id": "cazadora",
+      "archivo": "aldeanos/cazadora.glb",
+      "oficio": "Cazador / Curtidor",
+      "genero": "mujer"
+    },
+    {
+      "id": "aldeana",
+      "archivo": "aldeanos/aldeana.glb",
+      "oficio": "Aldeana / Tejedora",
+      "genero": "mujer"
+    },
+    {
+      "id": "cazador",
+      "archivo": "aldeanos/cazador.glb",
+      "oficio": "Cazador / Curtidor",
+      "genero": "hombre"
+    }
+  ]
+}

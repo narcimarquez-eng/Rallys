@@ -172,3 +172,4 @@ body.tactil #h-superficie { bottom: 112px; }
 #resultados .menu-caja.centrado { max-height: calc(100vh - 32px); overflow-y: auto; }
 @media (max-width: 640px) { #h-grupo { font-size: 0.78rem; min-width: 0; } #h-grupo .g-puesto { font-size: 1.3rem; } }
 @media (max-height: 480px) and (orientation: landscape) { #h-grupo { min-width: 0; padding: 4px 9px; } #h-grupo .g-puesto { font-size: 1.25rem; } #h-grupo div:not(.g-puesto) { font-size: 0.75rem; line-height: 1.35; } }
+#sel-dorsal { width: 4.2em; font: inherit; color: inherit; background: #1c242c; border: 1px solid var(--borde); border-radius: 8px; padding: 6px 8px; }
