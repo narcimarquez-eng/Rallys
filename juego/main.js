@@ -2,6 +2,8 @@
 // controles en orden. El escenario se dibuja con el mismo código que el visor de Mundos- (vendor/mundos).
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { Grabadora, codificar, decodificar, Fantasma } from './fantasma.js';
+import { versionEscenario, configOnline, mejorLocal, guardarLocal, clasificacion, fantasmaOnline, subirVuelta } from './clasificacion.js';
 import { Escena3D } from '../vendor/mundos/js/escena-3d.js';
 import { Pista, SUPERFICIES } from './pista.js';
 import { Coche } from './coche.js';
@@ -22,7 +24,7 @@ const url = r => new URL(r, RAIZ).href;
 const params = new URLSearchParams(location.search);
 
 // Preferencias
-const prefs = { escenario: null, coche: 'retro', vueltas: 3, camara: 'persecucion', calidad: matchMedia('(pointer: coarse)').matches ? 'baja' : 'media', hora: '', sonido: true, tactil: null, garaje: [] };
+const prefs = { escenario: null, coche: 'retro', vueltas: 3, camara: 'persecucion', calidad: matchMedia('(pointer: coarse)').matches ? 'baja' : 'media', hora: '', sonido: true, tactil: null, garaje: [], piloto: '', rivales: {}, versiones: {} };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('rallys.prefs') || '{}')); } catch (e) { /* nada */ }
 const guardarPrefs = () => { try { localStorage.setItem('rallys.prefs', JSON.stringify(prefs)); } catch (e) { /* nada */ } };
 const esTactil = () => prefs.tactil != null ? prefs.tactil : matchMedia('(pointer: coarse)').matches;
@@ -176,6 +178,7 @@ function pintarMenu() {
     lc.appendChild(b);
   }
   pintarFicha();
+  pintarClasif();
   const r = elegidoEsc && recs[elegidoEsc.id];
   $('record-menu').textContent = r ? `🏆 ${elegidoEsc.nombre}: mejor vuelta ${r.vuelta ? fmt(r.vuelta.t) : '–'}${r['total' + prefs.vueltas] ? ' · mejor carrera a ' + prefs.vueltas + ' vueltas ' + fmt(r['total' + prefs.vueltas].t) : ''}` : '';
 }
@@ -248,6 +251,9 @@ async function empezarPartida() {
     }
     textoCarga('Cargando el coche…');
     await prepararCoche();
+    versionEsc = versionEscenario(E, esc);
+    if (prefs.versiones[fuenteEsc.id] !== versionEsc) { prefs.versiones[fuenteEsc.id] = versionEsc; guardarPrefs(); }
+    try { await prepararFantasma(); } catch (e) { console.warn(e); quitarFantasma(); aviso('No se pudo cargar el fantasma: ' + e.message, 5000); }
     textoCarga('¡Listos!');
     nuevaCarrera();
   } catch (e) {
@@ -287,17 +293,21 @@ function rehacerObstaculos() {
 }
 
 let entornoCoche = null;
-async function prepararCoche() {
-  if (modelo && datosCoche === elegidoCoche && coche && coche.pista === pista) return;
-  if (modelo) scene.remove(modelo.objeto);
-  const c = elegidoCoche;
+// El modelo 3D de un coche del menú (fijo, cargado de un .glb, o generado con su semilla)
+async function modeloDe(c) {
   let fuente = c.bytes || (c.archivo && url(c.archivo));
   if (c.semilla) { // coche generado: su grupo 3D si está recién hecho; si no, se vuelve a construir con la semilla
     textoCarga('Construyendo el coche con el creador de Hacer coches…');
     if (!c.grupo) Object.assign(c, await construirGenerado(c.semilla));
     fuente = c.grupo; c.grupo = null; // cargarCoche lo reorganiza: la próxima vez se construye de nuevo
   }
-  modelo = await cargarCoche(fuente, { girar180: c.girar180 });
+  return cargarCoche(fuente, { girar180: c.girar180 });
+}
+async function prepararCoche() {
+  if (modelo && datosCoche === elegidoCoche && coche && coche.pista === pista) return;
+  if (modelo) scene.remove(modelo.objeto);
+  const c = elegidoCoche;
+  modelo = await modeloDe(c);
   // Reflejos para la pintura y el cromo: la escena no tiene mapa de entorno y, sin él, un metalizado sale casi negro
   if (!entornoCoche) entornoCoche = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
   modelo.objeto.traverse(o => {
@@ -326,6 +336,7 @@ function nuevaCarrera() {
   coche.reiniciar(s.x, s.z, s.rumbo);
   crono = new Cronometro(esc, pista, prefs.vueltas, fuenteEsc.id);
   crono.coche = datosCoche.nombre;
+  grabadora.reiniciar(); subida = null;
   camaras.usar(prefs.camara);
   colocarCoche(modelo, coche);
   // unos pasos parados para que la suspensión se asiente
@@ -359,12 +370,17 @@ function pausar(v) {
   pausado = v; $('pausa').hidden = !v; sonido.pausar(v);
 }
 $('p-seguir').onclick = () => pausar(false);
-$('p-reiniciar').onclick = () => { pausar(false); nuevaCarrera(); };
+// Otra carrera en el mismo circuito: con el fantasma al día (tu nueva mejor vuelta, si la hay)
+async function otraCarrera() {
+  try { await prepararFantasma(); } catch (e) { console.warn(e); quitarFantasma(); }
+  nuevaCarrera();
+}
+$('p-reiniciar').onclick = () => { pausar(false); otraCarrera(); };
 $('p-menu').onclick = () => irAlMenu();
 $('p-sonido').checked = prefs.sonido;
 $('p-sonido').onchange = e => { prefs.sonido = e.target.checked; sonido.setActivo(prefs.sonido); guardarPrefs(); };
 $('p-tactil').onchange = e => { prefs.tactil = e.target.checked; guardarPrefs(); ponerTactil(); };
-$('r-repetir').onclick = () => nuevaCarrera();
+$('r-repetir').onclick = () => otraCarrera();
 $('r-menu').onclick = () => irAlMenu();
 $('r-libre').onclick = () => { $('resultados').hidden = true; estado = 'libre'; };
 function irAlMenu() {
@@ -379,7 +395,113 @@ function mostrarResultados() {
   const ol = $('r-vueltas'); ol.innerHTML = '';
   const mejor = Math.min(...crono.tiemposVuelta);
   crono.tiemposVuelta.forEach(t => { const li = document.createElement('li'); li.textContent = fmt(t); if (t === mejor && crono.tiemposVuelta.length > 1) li.className = 'mejor'; ol.appendChild(li); });
+  pintarSubida();
   $('resultados').hidden = false;
+}
+
+// ---------------------------------------------------------------------------
+// Fantasmas y clasificación (juego/fantasma.js, juego/clasificacion.js)
+// ---------------------------------------------------------------------------
+const grabadora = new Grabadora();
+let fantasma = null, rival = null, versionEsc = null, subida = null;
+function quitarFantasma() { if (fantasma) fantasma.quitar(scene); fantasma = null; rival = null; claveFantasma = null; }
+// El rival elegido para este circuito: 'mio' (tu mejor vuelta), una vuelta de la clasificación ({ id }) o ninguno
+function rivalElegido(id) { const r = prefs.rivales[id]; return r === undefined ? 'mio' : r; }
+let claveFantasma = null;
+async function prepararFantasma() {
+  const r = rivalElegido(fuenteEsc.id);
+  const mio = r === 'mio' ? mejorLocal(fuenteEsc.id, versionEsc) : null;
+  const clave = JSON.stringify([fuenteEsc.id, versionEsc, r, mio && mio.tiempo]);
+  if (clave === claveFantasma && (fantasma || !mio)) return; // ya está (o no hay)
+  quitarFantasma(); claveFantasma = clave;
+  let texto = null, info = null;
+  if (mio) { texto = mio.fantasma; info = mio; }
+  else if (r && r.id) { textoCarga('Descargando el fantasma de ' + (r.piloto || 'otro piloto') + '…'); const f = await fantasmaOnline(r.id); if (f) { texto = f.fantasma; info = f; } }
+  if (!texto) return;
+  const f = await decodificar(texto);
+  if (f.datos.version && f.datos.version !== versionEsc) return; // de otra versión del circuito
+  // su coche, si lo tenemos (fijo o generado); si no, el tuyo
+  const c = indiceCoches.find(x => x.id === f.datos.coche) || (/^gen:\d+$/.test(f.datos.coche || '') ? entradaGenerado(+f.datos.coche.slice(4)) : null) || elegidoCoche;
+  textoCarga('Preparando el fantasma…');
+  let m;
+  try { m = await modeloDe(c); } catch (e) { m = await modeloDe(elegidoCoche); }
+  const cf = new Coche(pista, m.medidas, c.datos || {});
+  fantasma = new Fantasma(THREE, scene, f, m, cf, colocarCoche);
+  rival = { piloto: info.piloto || f.datos.piloto || 'tú', tiempo: info.tiempo || f.duracion, parciales: f.datos.parciales || null };
+}
+// Una vuelta terminada: si es tu mejor en este circuito, se guarda con su fantasma y, con la clasificación online y
+// tu nombre puesto, se sube
+async function registrarVuelta(v, ev) {
+  if (!versionEsc || v.muestras.length < 20) return;
+  const reg = { escenario: fuenteEsc.id, version: versionEsc, piloto: prefs.piloto || '', coche: datosCoche.id, coche_nombre: datosCoche.nombre, tiempo: +ev.t.toFixed(3) };
+  const ant = mejorLocal(reg.escenario, reg.version);
+  if (ant && ant.tiempo <= reg.tiempo) return;
+  try {
+    reg.fantasma = await codificar(v, { piloto: reg.piloto, coche: reg.coche, coche_nombre: reg.coche_nombre, version: reg.version, parciales: ev.parciales || null });
+  } catch (e) { console.warn(e); return; }
+  guardarLocal(Object.assign({ fecha: new Date().toISOString() }, reg));
+  if (!configOnline()) { subida = { estado: 'local', tiempo: reg.tiempo }; pintarSubida(); return; }
+  if (!reg.piloto) { subida = { estado: 'sin-nombre', tiempo: reg.tiempo }; pintarSubida(); return; }
+  subida = { estado: 'subiendo', tiempo: reg.tiempo }; pintarSubida();
+  try {
+    const id = await subirVuelta(reg);
+    const lista = await clasificacion(reg.escenario, reg.version, 200);
+    const puesto = lista ? lista.findIndex(f => f.id === id || (f.piloto.trim().toLowerCase() === reg.piloto.trim().toLowerCase() && Math.abs(f.tiempo - reg.tiempo) < 0.002)) + 1 : 0;
+    subida = { estado: 'subida', tiempo: reg.tiempo, puesto, de: lista ? lista.length : 0 };
+    cacheClasif.delete(reg.escenario);
+  } catch (e) { console.warn(e); subida = { estado: 'error', tiempo: reg.tiempo, error: e.message }; }
+  pintarSubida();
+}
+function pintarSubida() {
+  const d = $('r-online'); if (!d) return;
+  const s = subida;
+  d.innerHTML = !s ? (configOnline() ? '' : '<small>Clasificación online sin configurar (docs/ONLINE.md): tu mejor vuelta y su fantasma se guardan en este navegador.</small>')
+    : s.estado === 'local' ? `👻 Nueva mejor vuelta (${fmt(s.tiempo)}): guardada con su fantasma en este navegador.`
+    : s.estado === 'sin-nombre' ? `👻 Nueva mejor vuelta (${fmt(s.tiempo)}). Pon tu nombre de piloto en el menú para subirla a la clasificación.`
+    : s.estado === 'subiendo' ? '📤 Subiendo tu mejor vuelta a la clasificación…'
+    : s.estado === 'subida' ? `🌍 Mejor vuelta subida: <b>${s.puesto ? s.puesto + 'º' : ''}</b>${s.de ? ' de ' + s.de + ' pilotos' : ''} (${fmt(s.tiempo)})`
+    : `⚠ No se pudo subir la vuelta: ${esc_(s.error || '')}`;
+}
+
+// Panel del menú: tu nombre, la clasificación del circuito elegido y el rival fantasma
+const cacheClasif = new Map(); // id del escenario → { t, filas | error }
+let pidiendo = null;
+function pintarClasif() {
+  const d = $('clasif'); if (!d || !elegidoEsc) return;
+  const id = elegidoEsc.id, ver = prefs.versiones[id] || null;
+  const mio = ver ? mejorLocal(id, ver) : null, online = configOnline();
+  const r = rivalElegido(id);
+  const c = cacheClasif.get(id);
+  if (online && (!c || Date.now() - c.t > 60000) && pidiendo !== id) {
+    pidiendo = id;
+    // sin la versión del circuito (aún no se ha cargado nunca) se ven todas las vueltas
+    clasificacion(id, ver, 15)
+      .then(filas => cacheClasif.set(id, { t: Date.now(), filas: filas || [] }))
+      .catch(e => cacheClasif.set(id, { t: Date.now(), error: e.message }))
+      .finally(() => { pidiendo = null; if (elegidoEsc && elegidoEsc.id === id) pintarClasif(); });
+  }
+  const filas = c && c.filas ? c.filas : null;
+  const yo = (prefs.piloto || '').trim().toLowerCase();
+  d.innerHTML = `<div class="clasif-cab"><b>🏆 Clasificación · ${esc_(elegidoEsc.nombre)}</b>
+      <label>Piloto <input id="nombre-piloto" maxlength="24" placeholder="tu nombre" value="${esc_(prefs.piloto || '')}"></label></div>
+    <ol class="clasif-lista">
+      <li class="${r === 'mio' ? 'rival' : ''}"><span>👤 Tu mejor vuelta</span><em>${mio ? fmt(mio.tiempo) + ' · ' + esc_(mio.coche_nombre || '') : 'aún no hay'}</em>
+        ${mio ? `<button data-rival="mio" title="Correr contra tu mejor vuelta">${r === 'mio' ? '👻 rival' : '👻'}</button>` : ''}</li>
+      ${!online ? '<li class="nota">Clasificación online sin configurar (docs/ONLINE.md).</li>'
+        : c && c.error ? `<li class="nota">⚠ ${esc_(c.error)}</li>`
+        : !filas ? '<li class="nota">Cargando la clasificación…</li>'
+        : !filas.length ? '<li class="nota">Nadie ha subido una vuelta todavía. ¡Sé el primero!</li>'
+        : filas.map((f, i) => `<li class="${r && r.id === f.id ? 'rival' : ''}${f.piloto.trim().toLowerCase() === yo ? ' yo' : ''}"><span>${i + 1}. ${esc_(f.piloto)}</span><em>${fmt(f.tiempo)} · ${esc_(f.coche_nombre || f.coche)}</em>
+            <button data-rival="${f.id}" title="Correr contra su fantasma">${r && r.id === f.id ? '👻 rival' : '👻'}</button></li>`).join('')}
+    </ol>
+    <label class="fila-rival"><input type="checkbox" id="sin-rival" ${r === null ? 'checked' : ''}> Sin fantasma</label>`;
+  $('nombre-piloto').onchange = e => { prefs.piloto = e.target.value.trim().slice(0, 24); guardarPrefs(); pintarClasif(); };
+  $('sin-rival').onchange = e => { prefs.rivales[id] = e.target.checked ? null : 'mio'; guardarPrefs(); pintarClasif(); };
+  for (const b of d.querySelectorAll('[data-rival]')) b.onclick = () => {
+    const v = b.dataset.rival, f = filas && filas.find(x => String(x.id) === v);
+    prefs.rivales[id] = v === 'mio' ? 'mio' : { id: f.id, piloto: f.piloto, tiempo: f.tiempo };
+    guardarPrefs(); pintarClasif();
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -504,6 +626,7 @@ function bucle(ahora) {
     coche.paso(PASO, mando, obstaculos);
     if (estado === 'carrera') crono.actualizar(PASO, px, pz, coche.x, coche.z);
     for (const ev of crono.eventos) evento(ev);
+    if (estado === 'carrera') grabadora.paso(crono.t - crono.tVuelta0, coche);
     for (const im of coche.impactos) impacto(im);
     acumulado -= PASO; pasos++;
   }
@@ -511,6 +634,7 @@ function bucle(ahora) {
   if (coche.ahogado > 2.5) volverAPista();
 
   colocarCoche(modelo, coche);
+  if (fantasma) fantasma.actualizar(estado === 'cuenta' ? 0 : estado === 'carrera' ? crono.t - crono.tVuelta0 : -1);
   camaras.actualizar(dt, coche, modelo);
   escena.actualizar(dt, camara);
   escena.setFoco(coche.x, coche.z, prefs.calidad === 'alta' ? 140 : 90);
@@ -546,6 +670,7 @@ function avanzar(seg) {
     coche.paso(PASO, estado === 'fin' ? { gas: 0, freno: 0.4, giro: 0, manoFreno: false } : pilotoAuto(), obstaculos);
     if (estado === 'carrera') crono.actualizar(PASO, px, pz, coche.x, coche.z);
     for (const ev of crono.eventos) evento(ev);
+    if (estado === 'carrera') grabadora.paso(crono.t - crono.tVuelta0, coche);
     if (k % 120 === 0) obstaculos.actualizarPueblos(escena);
   }
   camaras.iniciada = false;
@@ -554,9 +679,12 @@ function avanzar(seg) {
 function evento(ev) {
   if (ev.tipo === 'control') {
     const d = ev.delta;
-    mensaje('', `Control ${ev.n} · ${fmt(ev.t)}${d != null ? ` <span class="${d <= 0 ? 'mejor-t' : 'peor-t'}">${fmt(d, true)}</span>` : ''}`, 2.5);
+    const pf = rival && rival.parciales ? rival.parciales[ev.n - 1] : null, df = pf != null ? ev.t - pf : null;
+    mensaje('', `Control ${ev.n} · ${fmt(ev.t)}${d != null ? ` <span class="${d <= 0 ? 'mejor-t' : 'peor-t'}">${fmt(d, true)}</span>` : ''}` +
+      (df != null ? ` · 👻 <span class="${df <= 0 ? 'mejor-t' : 'peor-t'}">${fmt(df, true)}</span>` : ''), 2.5);
     sonido.pitido(1200, 0.08);
   } else if (ev.tipo === 'vuelta') {
+    registrarVuelta(grabadora.cerrar(ev.t), ev);
     const d = ev.delta;
     if (ev.n < crono.vueltas) mensaje(`Vuelta ${ev.n + 1}`, `${fmt(ev.t)}${ev.record ? ' <span class="mejor-t">🏆 mejor vuelta</span>' : d != null ? ` <span class="peor-t">${fmt(d, true)}</span>` : ''}`, 3);
     sonido.pitido(990, 0.25);
@@ -628,5 +756,6 @@ window.__rallys = {
   saltarCuenta() { tCuenta = 0.001; },
   // foto de un coche para su tarjeta (tools/exportar-coches-fijos.cjs la guarda junto al .glb)
   async foto(archivo) { const m = await cargarCoche(url(archivo)); return fotoCoche(m.objeto, 480, 266); },
+  get fantasma() { return fantasma; }, get rival() { return rival; }, get subida() { return subida; }, get versionEsc() { return versionEsc; },
   avanzar, set autopiloto(v) { autopiloto = v; }, get autopiloto() { return autopiloto; }
 };

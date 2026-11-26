@@ -30,6 +30,12 @@ Escenarios que se pueden cargar:
 Coches: los de `coches/indice.json` (exportados de Hacer coches, con su masa y potencia) o **📂 cualquier `.glb`**.
 Los récords (mejor vuelta con sus parciales y mejor carrera por número de vueltas) se guardan en el navegador.
 
+## Clasificación online y fantasmas
+Cada mejor vuelta tuya se guarda con su **fantasma** (un coche semitransparente que repite la vuelta) y puedes correr
+contra él o contra el de cualquiera de la **clasificación** del circuito. Con Supabase configurado (gratis, ver
+[docs/ONLINE.md](docs/ONLINE.md)), las mejores vueltas se suben solas y ves tu puesto; sin él, todo funciona igual con
+tus propias vueltas en el navegador.
+
 ## Circuitos
 
 Cinco circuitos **diseñados a mano** en Mundos- (`vendor/mundos/js/rally-disenado.js`; plantillas `rally_campos`,

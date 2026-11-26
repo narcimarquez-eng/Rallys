@@ -119,3 +119,17 @@ body.tactil #h-superficie { bottom: 112px; }
   body.tactil #hud-coche { bottom: 12px; right: 50%; transform: translateX(50%); }
   body.tactil #h-superficie { display: none; }
 }
+
+/* Clasificación y fantasmas */
+.clasif { margin: 8px 0 12px; background: #151b22; border: 1px solid #2a3440; border-radius: 12px; padding: 10px 12px; }
+.clasif-cab { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.clasif-cab input { width: 11em; }
+.clasif-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.clasif-lista li { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 3px 6px; border-radius: 8px; font-size: 0.92rem; }
+.clasif-lista li em { font-style: normal; color: var(--suave); font-variant-numeric: tabular-nums; }
+.clasif-lista li button { padding: 2px 8px; font-size: 0.85rem; }
+.clasif-lista li.rival { background: #22303d; }
+.clasif-lista li.yo span { color: var(--acento); }
+.clasif-lista li.nota { display: block; color: var(--suave); }
+.fila-rival { display: inline-flex; gap: 6px; align-items: center; margin-top: 6px; color: var(--suave); font-size: 0.9rem; }
+.r-online { min-height: 1.2em; }

@@ -71,7 +71,7 @@ export class Cronometro {
     const mejorAnt = this.records.vuelta ? this.records.vuelta.t : null;
     const recordVuelta = mejorAnt == null || tv < mejorAnt;
     if (recordVuelta) this.records.vuelta = { t: tv, parciales, coche: this.coche || '', fecha: new Date().toISOString() };
-    this.eventos.push({ tipo: 'vuelta', n: this.vuelta, t: tv, record: recordVuelta, delta: mejorAnt != null ? tv - mejorAnt : null });
+    this.eventos.push({ tipo: 'vuelta', n: this.vuelta, t: tv, record: recordVuelta, delta: mejorAnt != null ? tv - mejorAnt : null, parciales });
     this.parcialesVuelta = []; this.siguiente = 0; this.recorrido = 0;
     if (this.vuelta >= this.vueltas) {
       this.estado = 'fin';
