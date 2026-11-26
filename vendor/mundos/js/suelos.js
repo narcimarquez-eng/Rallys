@@ -34,7 +34,7 @@ export const CAPA_CAMINO = { tierra: [14, 4], grava: [13, 3.2], asfalto: [6, 3],
 const ESCALA_TERRENO = 4; // m por repetición en el terreno
 
 function cargarImagen(src) {
-  return new Promise((ok, mal) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => mal(new Error('No se pudo cargar ' + src)); im.src = src; });
+  return new Promise((ok, mal) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = () => mal(new Error('No se pudo cargar ' + src)); im.src = src; });
 }
 
 let promesa = null;

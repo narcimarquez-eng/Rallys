@@ -246,13 +246,14 @@ function dispersar(el, ctx, cantidad, crearInstancias) {
   const pts = [];
   const agua = esc.terreno.agua.activa ? esc.terreno.agua.nivel : -Infinity;
   const caminos = ctx.muestrasCaminos();
+  const holgura = el.props.holgura || 0; // metros libres de más a los lados de los caminos (bosques junto a la pista)
   for (let k = 0; k < cantidad * 3 && pts.length < cantidad; k++) {
     const a = rng.next() * Math.PI * 2, d = Math.sqrt(rng.next()) * r;
     const x = el.x + Math.cos(a) * d, z = el.z + Math.sin(a) * d;
     if (!E.dentro(esc, x, z)) continue;
     const h = E.alturaEn(esc, x, z);
     if (h < agua + 0.6) continue;
-    if (caminos.some(c => c.cerca(x, z))) continue;
+    if (caminos.some(c => c.cerca(x, z, holgura))) continue;
     pts.push({ x, z, y: h, s: rng.next(), rot: rng.next() * Math.PI * 2, v: rng.next() });
   }
   return crearInstancias(pts, rng);
@@ -755,7 +756,7 @@ export class Escena3D {
     this.sol.castShadow = this.o.calidad !== 'baja';
     const sm = this.o.calidad === 'alta' ? 4096 : 2048;
     this.sol.shadow.mapSize.set(sm, sm);
-    this.sol.shadow.bias = -0.0004; this.sol.shadow.normalBias = 0.6;
+    this.sol.shadow.bias = -0.0003; this.sol.shadow.normalBias = 0.45; this.sol.shadow.radius = 2.5;
     this.scene.add(this.sol, this.sol.target);
     this.hemi = new THREE.HemisphereLight('#cfe3ff', '#5a5040', 0.9);
     this.scene.add(this.hemi);
@@ -780,7 +781,11 @@ export class Escena3D {
     this._entornoPendiente = true;
     if (this.matsAgua) for (const m of this.matsAgua) m.envMapIntensity = 0.12 + 0.22 * dia;
     this.hemi.color.set('#cfe3ff').lerp(new THREE.Color('#33406a'), 1 - dia);
-    const niebla = new THREE.Color('#bcd3e6').lerp(new THREE.Color('#e6a77a'), ocaso).lerp(new THREE.Color('#0c1220'), 1 - dia);
+    const bioma = this.esc && this.esc.terreno && this.esc.terreno.bioma;
+    const sueloHemi = bioma === 'nevado' ? '#9bb2c9' : bioma === 'desierto' ? '#8f724d' : bioma === 'otono' ? '#7a5c3c' : bioma === 'volcanico' ? '#494240' : '#4f6443';
+    this.hemi.groundColor.set(sueloHemi).lerp(new THREE.Color('#161b26'), 1 - dia);
+    const nieblaDia = bioma === 'desierto' ? '#dfd0b8' : bioma === 'nevado' ? '#cfdeec' : bioma === 'otono' ? '#d4c8b4' : '#bcd3e6';
+    const niebla = new THREE.Color(nieblaDia).lerp(new THREE.Color('#e6a77a'), ocaso).lerp(new THREE.Color('#0c1220'), 1 - dia);
     this.scene.fog.color.copy(niebla);
     this.scene.background = niebla.clone();
     this.cielo.visible = dia > 0.02;
@@ -939,9 +944,9 @@ export class Escena3D {
       const mu = E.muestrearCamino(c, 3), lim = c.ancho / 2 + 1.5;
       const celdas = new Map();
       for (const m of mu) { const k = Math.floor(m.x / 10) + ',' + Math.floor(m.z / 10); if (!celdas.has(k)) celdas.set(k, []); celdas.get(k).push(m); }
-      return { cerca(x, z) {
-        const cx = Math.floor(x / 10), cz = Math.floor(z / 10);
-        for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const l = celdas.get((cx + a) + ',' + (cz + b)); if (l) for (const m of l) if (Math.hypot(m.x - x, m.z - z) < lim) return true; }
+      return { cerca(x, z, extra) {
+        const cx = Math.floor(x / 10), cz = Math.floor(z / 10), L = lim + (extra || 0), n = Math.ceil(L / 10);
+        for (let a = -n; a <= n; a++) for (let b = -n; b <= n; b++) { const l = celdas.get((cx + a) + ',' + (cz + b)); if (l) for (const m of l) if (Math.hypot(m.x - x, m.z - z) < L) return true; }
         return false;
       } };
     });
@@ -1203,6 +1208,8 @@ export class Escena3D {
   // ruta: 'local:<id>' (importado, en IndexedDB), 'rpg:<ruta>' (biblioteca del Creador RPG) o una URL
   resolverRuta(ruta) {
     if (ruta.startsWith('rpg:')) return (this.esc.enlaces.rpgBase || E.RPG_BASE).replace(/\/?$/, '/') + ruta.slice(4);
+    const base = this.o.baseAssets != null ? this.o.baseAssets : (globalThis.MUNDOS_ASSETS || '');
+    if (base && !/^(https?:|blob:|data:|local:|\/)/i.test(ruta)) return base + ruta;
     return ruta;
   }
   cargarModelo(ruta) {

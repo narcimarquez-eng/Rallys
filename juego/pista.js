@@ -16,7 +16,7 @@ export const SUPERFICIES = {
   barro: { nombre: 'Barro', agarre: 0.48, rodadura: 0.085, bache: 0.02, polvo: '#5b4632', sonido: 'barro' },
   hierba: { nombre: 'Hierba', agarre: 0.55, rodadura: 0.05, bache: 0.03, polvo: '#6f8a45', sonido: 'hierba' },
   roca: { nombre: 'Roca', agarre: 0.7, rodadura: 0.03, bache: 0.05, polvo: '#8a8580', sonido: 'piedra' },
-  nieve: { nombre: 'Nieve', agarre: 0.4, rodadura: 0.04, bache: 0.01, polvo: '#f4f6fa', sonido: 'nieve' },
+  nieve: { nombre: 'Nieve', agarre: 0.5, rodadura: 0.04, bache: 0.01, polvo: '#f4f6fa', sonido: 'nieve' },
   hielo: { nombre: 'Hielo', agarre: 0.18, rodadura: 0.01, bache: 0.002, polvo: null, sonido: 'asfalto' },
   agua: { nombre: 'Agua (vado)', agarre: 0.45, rodadura: 0.05, bache: 0.01, polvo: '#d9eef5', sonido: 'agua' }
 };

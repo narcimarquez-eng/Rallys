@@ -34,6 +34,7 @@ Unidades en **metros**. Ejes como en three.js: `x` y `z` en el suelo, `y` hacia 
 | `gen` | Parámetros con los que se generó: `{ tipo, escala, altura, octavas, base, semilla }`. `tipo`: `plano`, `colinas`, `montanas`, `isla`, `archipielago`, `valle`, `dunas`, `mesetas`, `canon`, `crater`. |
 | `agua` | `{ activa, nivel, color }`: plano de agua a esa altura (`color` null = el del bioma). |
 | `bordes` | `cortado` (bloque) o `infinito` (en el visor el agua llega al horizonte y no se dibuja el borde). |
+| `cotaNieve` | Opcional: altura (m) a partir de la que el material automático es la «cima» del bioma (nieve en el templado). Sin ella, la cima es el 18 % más alto del terreno si hay más de 40 m de desnivel. |
 
 Materiales: 0 automático · 1 hierba · 2 hierba seca · 3 tierra · 4 roca · 5 arena · 6 nieve · 7 asfalto · 8 barro · 9 grava · 10 musgo · 11 ceniza · 12 hielo · 13 baldosa.
 
@@ -73,7 +74,7 @@ Los puntos son de control: la línea real es una curva Catmull-Rom que pasa por 
 | `muro` | punto | `largo, alto, grosor, color` (a lo largo de x) |
 | `arbol` | punto | `especie`: con modelo (`liquidambar`, `pinsapo`, `pino_pinonero`, `palmera_datilera`) o sencilla (`roble`, `pino`, `abeto`, `palmera`, `abedul`, `seco`, `cactus`); `alto` en m (0 = la del modelo) |
 | `roca` | punto | `tam, color` |
-| `bosque` | área | `radio, especie` (o `mixto`: mezcla según el bioma), `densidad` (árboles cada 1000 m²), `tamano` (× la altura de los árboles con modelo), `altoMin, altoMax` (árboles sencillos), `rocas, semilla` |
+| `bosque` | área | `radio, especie` (o `mixto`: mezcla según el bioma), `densidad` (árboles cada 1000 m²), `tamano` (× la altura de los árboles con modelo), `altoMin, altoMax` (árboles sencillos), `rocas, semilla`, `holgura` (m libres de más junto a los caminos) |
 | `rocas` | área | `radio, cantidad, tamMin, tamMax, color, semilla` |
 | `lago` | área | `radio, nivel` (altura del agua sobre el suelo del centro), `color`, `forma` (semilla de la orilla irregular; `Escenario.excavarLago` hace el vaso) |
 | `puente` | punto | `modelo` (`romano`, `torreon`, `madera`, `riotinto`, `muelle`), `largo` y `ancho` (m; 0 = los del modelo), `camino` (id del camino que cruza). Cruza a lo largo de su X local (`rotY`); `Escenario.puentesDeCamino` da los tramos del camino que van por él. |

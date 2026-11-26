@@ -30,6 +30,36 @@ Escenarios que se pueden cargar:
 Coches: los de `coches/indice.json` (exportados de Hacer coches, con su masa y potencia) o **📂 cualquier `.glb`**.
 Los récords (mejor vuelta con sus parciales y mejor carrera por número de vueltas) se guardan en el navegador.
 
+## Circuitos
+
+Cinco circuitos **diseñados a mano** en Mundos- (`vendor/mundos/js/rally-disenado.js`; plantillas `rally_campos`,
+`rally_puerto`, `rally_boreal`, `rally_tabernas` y `rally_acantilados`), más los dos de antes, hechos con la
+plantilla «rally» aleatoria:
+
+| Circuito | Largo | Desnivel | Carácter |
+|---|---|---|---|
+| 🌾 Campos de Castilla | 3,9 km | 38 m | Tierra y grava rápidas al atardecer: salto en la recta de salida, subida al cerro, puente de piedra, recta larga que acaba en horquilla, vado en la vaguada y pueblo blanco. |
+| ⛰ Puerto del Pinsapar | 4,4 km | 80 m | Subida de asfalto con tres horquillas encadenadas, cresta con vistas, bajada de grava entre pinsapos con un repecho y puente romano. |
+| 🌲 Bosque Boreal | 3,8 km | 12 m | Nieve entre pinsapos, curvas enlazadas y cuatro lomos para volar, puente de madera, vado y aldea nórdica. |
+| 🏜 Rambla de Tabernas | 4,2 km | 7 m | Tres saltos en las dunas, el oasis con su poblado, el cañón entre dos mesetas de roca y la rambla seca. |
+| 🌊 Costa de los Acantilados | 3,2 km | 45 m | Asfalto al borde del acantilado sobre el mar, puente de hierro sobre la cala y vuelta por grava entre pinos piñoneros. |
+
+Qué tienen en común (lo que hace que se jueguen bien):
+- **Ritmo**: rectas que acaban en frenadas fuertes, curvas de transición (sin cambios bruscos de volante), eses,
+  horquillas, cambios de rasante y saltos donde se han querido, no donde caigan.
+- **Pendientes de carretera**: las subidas se reparten por las horquillas y los tramos entre ellas; los puentes están a
+  nivel (terraplén a la altura del tablero); los vados bajan al agua con rampas suaves y llevan 15–20 cm de agua.
+- **Barreras con criterio**: paja o guardarraíl por fuera de las curvas cerradas, guardarraíl donde la carretera tiene
+  caída a un lado, neumáticos en la salida y cinta donde hay público.
+- **Controles** en el tramo más recto cerca de donde se piden, para que pasar por el arco no sea una lotería.
+- **Siempre iguales**: el diseño fija el relieve y la posición de cada árbol (no dependen de una semilla).
+
+`npm test` da una vuelta a cada uno con el piloto automático: llega a meta, pasa los cinco controles en orden, cruza el
+puente por encima y el vado por el agua.
+
+![Los cinco circuitos en planta, con su perfil](docs/capturas/circuitos-planta.jpg)
+![En el juego: tres puntos de cada circuito](docs/capturas/circuitos-disenados.jpg)
+
 ## Cómo se reutiliza Mundos- (decisión)
 **Copia en `vendor/mundos/` con un script para actualizarla** (`tools/actualizar-mundos.sh`), en vez de cargarlo
 desde donde esté publicado:
@@ -103,7 +133,7 @@ agarre en tierra, suspensión, frenos y peso, además del tipo de carrocería, l
 | Archivo | Qué hace |
 |---|---|
 | `pista.js` | Qué hay bajo cada punto: altura por la que se rueda (terreno, cinta del camino, **rampas y tablero de los puentes**), superficie (tramos del camino, materiales del terreno, calles del pueblo) y agua (riachuelos con su **vado**, lagos, mar). |
-| `coche.js` | Física arcade-creíble: **suspensión en las 4 ruedas** que sigue `alturaEn` y la pendiente (la carga de cada rueda sale de su muelle: en el aire no agarra), neumáticos con curva de agarre y círculo de fricción, **freno de mano para derrapar**, motor con curva de par, cambio automático de 6 marchas y marcha atrás, tracción total, gravedad en las cuestas, aire y arrastre del agua. Agarre: asfalto 1 > adoquín 0,86 > grava 0,74 > tierra 0,68 > hierba 0,55 > barro 0,48; agua 0,45 y frena. |
+| `coche.js` | Física arcade-creíble: **suspensión en las 4 ruedas** que sigue `alturaEn` y la pendiente (la carga de cada rueda sale de su muelle: en el aire no agarra), neumáticos con curva de agarre y círculo de fricción, **freno de mano para derrapar**, motor con curva de par, cambio automático de 6 marchas y marcha atrás, tracción total, gravedad en las cuestas, aire y arrastre del agua. Agarre: asfalto 1 > adoquín 0,86 > grava 0,74 > tierra 0,68 > hierba 0,55 > nieve 0,5 (neumáticos de clavos) > barro 0,48; agua 0,45 y frena. |
 | `obstaculos.js` | Choques: troncos de árboles y rocas (leídos de lo que dibuja Mundos-), **casas, fuente y farolas del pueblo** (los `colliders` de su generador), **la iglesia** y demás `.glb` (su caja), cajas y muros, postes de meta y controles, **barreras** de los caminos (guardarraíl, muro, neumáticos… y la cinta y los conos, que solo frenan) y pretiles de los puentes. |
 | `cronometro.js` | Salida, controles en orden, vueltas, meta, parciales contra la mejor vuelta y récords. Si el camino no es circuito, es un tramo de una pasada. |
 | `camaras.js`, `controles.js`, `sonido.js`, `particulas.js` | Persecución/capó/cabina · teclado, mando y táctil · motor, superficie, derrape y golpes con Web Audio (sin archivos) · polvo, barro y salpicaduras. |

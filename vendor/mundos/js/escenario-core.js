@@ -186,10 +186,11 @@
   registrarTipo({ id: 'roca', nombre: 'Roca', icono: '🪨', grupo: 'naturaleza', props: { tam: 3, color: '#7d7a74', forma: 'variada', piedra: 'mezcla' },
     campos: [NUM('tam', 'Tamaño', 0.2, 100), { k: 'forma', n: 'Forma', t: 'sel', op: FORMAS_ROCA }, { k: 'piedra', n: 'Piedra', t: 'sel', op: PIEDRAS }, COLOR('color', 'Tinte')] });
   registrarTipo({ id: 'bosque', nombre: 'Bosque (área)', icono: '🌲', grupo: 'naturaleza', forma: 'area', radioDefecto: 40,
-    props: { radio: 40, especie: 'mixto', densidad: 6, tamano: 1, altoMin: 6, altoMax: 13, rocas: 0.15, semilla: 1 },
+    props: { radio: 40, especie: 'mixto', densidad: 6, tamano: 1, altoMin: 6, altoMax: 13, rocas: 0.15, holgura: 0, semilla: 1 },
     campos: [NUM('radio', 'Radio', 5, 2000, 1), { k: 'especie', n: 'Especie', t: 'sel', op: ESPECIES }, NUM('densidad', 'Árboles cada 1000 m²', 0.2, 40, 0.2),
       NUM('tamano', 'Tamaño de los árboles con modelo (×)', 0.3, 3, 0.05),
-      NUM('altoMin', 'Altura mínima (sencillos)', 1, 60), NUM('altoMax', 'Altura máxima (sencillos)', 1, 60), NUM('rocas', 'Rocas (proporción)', 0, 1, 0.05), NUM('semilla', 'Semilla', 1, 99999, 1)] });
+      NUM('altoMin', 'Altura mínima (sencillos)', 1, 60), NUM('altoMax', 'Altura máxima (sencillos)', 1, 60), NUM('rocas', 'Rocas (proporción)', 0, 1, 0.05),
+      NUM('holgura', 'Espacio libre junto a los caminos (m)', 0, 40, 0.5), NUM('semilla', 'Semilla', 1, 99999, 1)] });
   registrarTipo({ id: 'rocas', nombre: 'Pedregal (área)', icono: '⛰', grupo: 'naturaleza', forma: 'area', radioDefecto: 25,
     props: { radio: 25, cantidad: 30, tamMin: 0.6, tamMax: 4, color: '#7d7a74', forma: 'variada', piedra: 'mezcla', semilla: 1 },
     campos: [NUM('radio', 'Radio', 2, 1000, 1), NUM('cantidad', 'Cantidad', 1, 600, 1), NUM('tamMin', 'Tamaño mínimo', 0.1, 50, 0.1), NUM('tamMax', 'Tamaño máximo', 0.1, 80, 0.1),
@@ -361,7 +362,7 @@
     const base = Math.max(r.min, agua === -Infinity ? r.min : agua);
     const span = Math.max(1, r.max - base);
     const rel = (h - base) / span;
-    if (rel > 0.82 && r.max - base > 40) return b.cima;
+    if (t.cotaNieve != null ? h > t.cotaNieve : (rel > 0.82 && r.max - base > 40)) return b.cima; // cotaNieve: altura fija (opcional)
     if (rel > 0.6 && s > 0.45) return b.alto;
     return b.medio;
   }
@@ -675,11 +676,15 @@
   }
 
   // Ajusta el terreno al camino: lo allana a lo ancho con su rasante y suaviza los taludes.
+  // opts: { margen (m de talud), ventana (muestras de la media móvil de la rasante), pintar,
+  //         perfil(d, y) → y: retoca la rasante a d metros del inicio (cambios de rasante, saltos, terraplenes…),
+  //         respetar(d) → true: deja el terreno como está ahí (p. ej. bajo un puente, donde pasa el río) }
   function ajustarTerrenoACamino(esc, camino, opts) {
     opts = opts || {};
     const mu = muestrearCamino(camino, Math.max(1, paso(esc) * 0.75));
     if (mu.length < 2) return null;
     const ras = rasante(esc, mu, opts.ventana || Math.round(10 / Math.max(1, paso(esc) * 0.75)), camino.cerrado);
+    if (opts.perfil && !esRio(camino)) for (let k = 0; k < ras.length; k++) ras[k] = opts.perfil(mu[k].d, ras[k]);
     const t = esc.terreno, r = t.res, p = paso(esc);
     const rio = esRio(camino), prof = rio ? profundidadRio(camino) : 0;
     let margenK = null;
@@ -714,6 +719,7 @@
       if (bk < 0 || best > lim) continue;
       const mk = margenK ? Math.min(80, margenK[bk]) : margen;
       if (best > medio + mk) continue;
+      if (opts.respetar && opts.respetar(mu[bk].d)) continue;
       const w = best <= medio ? 1 : suave(1 - (best - medio) / mk);
       const k = j * r + i;
       if (rio) {
@@ -906,7 +912,7 @@
     }
     return nuevos;
   }
-  // Tramos de un camino que van por un puente: [{ d0, d1, alto (altura del tablero en los extremos), rampa }]
+  // Tramos de un camino que van por un puente: [{ d0, d1, alto (altura del tablero en los extremos), rampa, arco }]
   function puentesDeCamino(esc, c) {
     const out = [];
     for (const el of esc.elementos) {
@@ -915,9 +921,118 @@
       const pr = proyectarEnCamino(c, el.x, el.z);
       if (!pr || pr.dist > c.ancho) continue;
       const L = (el.props.largo || def.vano) / 2;
-      out.push({ d0: pr.d - L, d1: pr.d + L, alto: alturaEn(esc, el.x, el.z) + (el.y || 0) + def.extremo, rampa: Math.max(4, def.extremo * 3) });
+      out.push({
+        d0: pr.d - L, d1: pr.d + L,
+        alto: alturaEn(esc, el.x, el.z) + (el.y || 0) + def.extremo,
+        arco: Math.max(0, def.centro - def.extremo),
+        rampa: Math.max(4, def.extremo * 3)
+      });
     }
     return out;
+  }
+
+  // Terraplenes de los puentes de un camino: sube el terreno del camino antes y después de cada puente hasta la altura
+  // del tablero, con una pendiente suave (como mucho «pendiente», 7 % por defecto). Sin ellos el camino tiene que subir
+  // al tablero en unos pocos metros (una rampa de salto). El terreno bajo el puente (el cauce) no se toca.
+  // opts: los de ajustarTerrenoACamino (su perfil y respetar se combinan con los de los puentes). Sin puentes: null.
+  function terraplenesPuentes(esc, c, opts) {
+    opts = opts || {};
+    const pu = puentesDeCamino(esc, c);
+    if (!pu.length) return null;
+    const mu = muestrearCamino(c, 2), total = mu[mu.length - 1].d;
+    const pend = opts.pendiente || 0.07;
+    const largos = pu.map(b => {
+      const sube = d => { const q = puntoEnD(mu, d, c.cerrado); return Math.max(0, b.alto - alturaEn(esc, q.x, q.z)); };
+      return { b, antes: clamp(sube(b.d0 - 6) / pend, 12, 90), despues: clamp(sube(b.d1 + 6) / pend, 12, 90) };
+    });
+    const dist = (d, a) => { let x = d - a; if (c.cerrado) x = ((x % total) + total * 1.5) % total - total / 2; return x; };
+    const perfil = (d, y) => {
+      if (opts.perfil) y = opts.perfil(d, y);
+      for (const { b, antes, despues } of largos) {
+        const r0 = dist(d, b.d0), r1 = dist(d, b.d1);
+        let f = 0;
+        if (r0 < 0 && r0 > -antes) f = suave(1 + r0 / antes);
+        else if (r1 > 0 && r1 < despues) f = suave(1 - r1 / despues);
+        else if (r0 >= 0 && r1 <= 0) f = 1;
+        if (f > 0) y = Math.max(y, lerp(y, b.alto - 0.1, f));
+      }
+      return y;
+    };
+    const respetar = d => (opts.respetar && opts.respetar(d)) || largos.some(({ b }) => dist(d, b.d0) > -1.5 && dist(d, b.d1) < 1.5);
+    return ajustarTerrenoACamino(esc, c, Object.assign({}, opts, { perfil, respetar }));
+  }
+  function puntoEnD(mu, d, cerrado) {
+    const total = mu[mu.length - 1].d;
+    if (cerrado) d = ((d % total) + total) % total; else d = clamp(d, 0, total);
+    let a = 0, b = mu.length - 1;
+    while (b - a > 1) { const m = (a + b) >> 1; if (mu[m].d < d) a = m; else b = m; }
+    const t = (d - mu[a].d) / Math.max(1e-6, mu[b].d - mu[a].d);
+    return { x: lerp(mu[a].x, mu[b].x, t), z: lerp(mu[a].z, mu[b].z, t) };
+  }
+
+  // Nivel del agua en (x, z) combinando mar/plano global, lagos y riachuelos (-Infinity si está seco)
+  const cacheNivelesRio = new WeakMap();
+  function aguaEn(esc, x, z) {
+    let nivel = -Infinity;
+    const ag = esc.terreno.agua;
+    if (ag && ag.activa) nivel = Math.max(nivel, ag.nivel);
+    for (const el of esc.elementos || []) {
+      if (el.tipo !== 'lago') continue;
+      const r = (el.props && el.props.radio || 30) * 1.25;
+      if (Math.hypot(x - el.x, z - el.z) <= r) {
+        nivel = Math.max(nivel, alturaEn(esc, el.x, el.z) + (el.props && el.props.nivel || 0) + 0.05);
+      }
+    }
+    for (const c of esc.caminos || []) {
+      if (!esRio(c) || !c.puntos || c.puntos.length < 2) continue;
+      let cache = cacheNivelesRio.get(c);
+      const firma = JSON.stringify(c.puntos) + c.ancho;
+      if (!cache || cache.firma !== firma) {
+        const mu = muestrearCamino(c, 2);
+        cache = { firma, mu, niv: nivelesRio(esc, c, mu) };
+        cacheNivelesRio.set(c, cache);
+      }
+      const pr = proyectarEnCamino(c, x, z, cache.mu);
+      if (pr && pr.dist <= c.ancho * 0.72) {
+        let best = 0, bestD = Infinity;
+        for (let k = 0; k < cache.mu.length; k++) {
+          const dd = Math.abs(cache.mu[k].d - pr.d);
+          if (dd < bestD) { bestD = dd; best = k; }
+        }
+        nivel = Math.max(nivel, cache.niv[best]);
+      }
+    }
+    return nivel;
+  }
+
+  // Altura real de conducción en (x, z), teniendo en cuenta la rasante de puentes y rampas
+  function alturaCalzadaEn(esc, x, z) {
+    const yTerreno = alturaEn(esc, x, z);
+    const hit = caminoEn(esc, x, z);
+    if (!hit || esRio(hit.camino)) {
+      return { y: yTerreno, enPuente: false, superficie: null, camino: null, d: 0 };
+    }
+    const puentes = puentesDeCamino(esc, hit.camino);
+    let y = yTerreno, enPuente = false;
+    if (puentes.length) {
+      let mejor = null;
+      for (const b of puentes) {
+        const fuera = hit.d < b.d0 ? b.d0 - hit.d : hit.d > b.d1 ? hit.d - b.d1 : 0;
+        if (fuera > b.rampa) continue;
+        const t = 1 - fuera / b.rampa;
+        const f = t * t * (3 - 2 * t);
+        if (!mejor || f > mejor.f) {
+          const extra = (fuera === 0 && b.d1 > b.d0) ? Math.sin(Math.PI * clamp((hit.d - b.d0) / (b.d1 - b.d0), 0, 1)) * (b.arco || 0) : 0;
+          mejor = { alto: b.alto + extra, f, fuera };
+        }
+      }
+      if (mejor) {
+        const yTab = lerp(yTerreno, mejor.alto + 0.08, mejor.f);
+        if (yTab > y) y = yTab;
+        if (mejor.fuera === 0) enPuente = true;
+      }
+    }
+    return { y, enPuente, superficie: enPuente ? 'piedra' : hit.tipo, camino: hit.camino, d: hit.d };
   }
 
   // --- Salidas del pueblo y caminos del escenario ---
@@ -1211,6 +1326,317 @@
       }
     } });
 
+  // Generador compartido para variantes temáticas de rally pensadas para jugabilidad y calidad visual
+  function construirCircuitoRally(esc, rng, cfg) {
+    if (cfg.agua) esc.terreno.agua = Object.assign({ activa: true, nivel: 0, color: null }, cfg.agua);
+    if (cfg.bordes) esc.terreno.bordes = cfg.bordes;
+    if (cfg.ambiente) Object.assign(esc.ambiente, cfg.ambiente);
+    generarTerreno(esc, cfg.terreno);
+
+    const m = esc.terreno.tam / 2;
+    const R = esc.terreno.tam * (cfg.radioFactor || 0.30);
+    const n = cfg.nPuntos || 16;
+    const N = crearRuido(rng.int(1, 1e6));
+    const pts = [];
+    for (let k = 0; k < n; k++) {
+      const a = k / n * Math.PI * 2;
+      const onda = N.ruido(Math.cos(a) * (cfg.frecForma || 1.4), Math.sin(a) * (cfg.frecForma || 1.4)) * 0.5 + 0.5;
+      const rr = R * (0.68 + (cfg.amplitudForma || 0.46) * onda);
+      let x = Math.cos(a) * rr * (cfg.xFactor || 1.12);
+      let z = Math.sin(a) * rr * (cfg.zFactor || 0.88);
+      if (cfg.elevMinima != null && alturaEn(esc, x, z) < cfg.elevMinima) {
+        // En islas/costa, asegura tierra firme antes de trazar la pista
+        allanarArea(esc, x, z, 28, cfg.elevMinima + 1.4, 34);
+      }
+      pts.push({ x, z });
+    }
+
+    const c = crearCamino(esc, {
+      tipo: cfg.tipoCamino || 'grava',
+      ancho: cfg.ancho || 11,
+      cerrado: true,
+      bordes: Boolean(cfg.bordesCamino),
+      puntos: pts,
+      nombre: cfg.nombreCamino || 'Circuito'
+    });
+    if (cfg.elevMinima != null) {
+      for (const p of muestrearCamino(c, 16)) {
+        if (alturaEn(esc, p.x, p.z) < cfg.elevMinima) {
+          allanarArea(esc, p.x, p.z, 20, cfg.elevMinima + 0.9, 26);
+        }
+      }
+    }
+    ajustarTerrenoACamino(esc, c, { margen: cfg.margen || 13 });
+
+    // Pueblo opcional en el tramo más recto entre 30% y 72%
+    let pueblo = null, hP = 0;
+    if (cfg.pueblo) {
+      const cfgP = cfgPuebloPorDefecto(rng.int(1, 99999), cfg.pueblo.size || 4);
+      Object.assign(cfgP, {
+        style: cfg.pueblo.style || 'european',
+        casas: cfg.pueblo.casas || 'glb',
+        trazado: cfg.pueblo.trazado || 'variado',
+        houseDensity: 90, maxFloors: 2, puestos: false, hasWalls: false, hasRiver: false, hasMagic: false, specialCount: 0,
+        treeDensity: cfg.pueblo.treeDensity ?? 30, relief: 0, rotation: 0
+      });
+      hP = mitadTerrenoPueblo(cfgP);
+      const mu0 = muestrearCamino(c, 2), total0 = mu0[mu0.length - 1].d;
+      let mejor = null;
+      for (let k = 0; k < mu0.length; k++) {
+        const q = mu0[k];
+        if (q.d < total0 * 0.30 || q.d > total0 * 0.72) continue;
+        const A = mu0[Math.max(0, k - 36)], B = mu0[Math.min(mu0.length - 1, k + 36)];
+        const recta = Math.hypot(B.x - A.x, B.z - A.z) / Math.max(1, B.d - A.d);
+        if (!mejor || recta > mejor.recta) mejor = { q, recta };
+      }
+      if (mejor) {
+        pueblo = crearElemento(esc, 'pueblo', Math.round(mejor.q.x), Math.round(mejor.q.z), { nombre: cfg.pueblo.nombre || 'Aldea', nivel: 1, cfg: cfgP });
+        atravesarPueblo(esc, pueblo, c);
+        prepararPueblo(esc, pueblo);
+        ajustarTerrenoACamino(esc, c, { margen: cfg.margen || 13 });
+        prepararPueblo(esc, pueblo);
+      }
+    }
+
+    const mu = muestrearCamino(c, 2), total = mu[mu.length - 1].d;
+    const enD = d => {
+      let k = 0; while (k < mu.length - 1 && mu[k].d < d) k++;
+      const a = mu[Math.max(0, k - 1)], b = mu[Math.min(mu.length - 1, k + 1)];
+      return { x: mu[k].x, z: mu[k].z, rot: Math.atan2(b.x - a.x, b.z - a.z) * 180 / Math.PI };
+    };
+    const s0 = enD(4);
+    crearElemento(esc, 'meta', s0.x, s0.z, { ancho: 16 }).rotY = s0.rot;
+    const pIni = enD(total - 14);
+    crearElemento(esc, 'inicio', pIni.x, pIni.z).rotY = s0.rot;
+
+    const enPueblo = d => {
+      if (!pueblo) return false;
+      const p = enD(d);
+      return dentroTerrenoPueblo(pueblo, p.x, p.z, -20);
+    };
+    for (let k = 1; k <= 5; k++) {
+      let d = total * k / 6;
+      while (enPueblo(d) && d < total - 35) d += 22;
+      const p = enD(d);
+      crearElemento(esc, 'checkpoint', p.x, p.z, { orden: k, ancho: 15, nombre: 'Control ' + k }).rotY = p.rot;
+    }
+
+    const red = v => Math.round(v);
+    for (const tr of (cfg.tramos || [])) {
+      const d0 = red(total * tr.desdeF), d1 = red(total * tr.hastaF);
+      c.tramos.push({ desde: d0, hasta: d1, tipo: tr.tipo });
+      if (tr.barrera) {
+        c.barreras.push({ tipo: tr.barrera, lado: 'ambos', desde: d0, hasta: d1, separacion: 0.9 });
+      }
+    }
+    c.barreras.push(
+      { tipo: cfg.barreraSalida || 'neumaticos', lado: 'ambos', desde: red(total - 38), hasta: 38, separacion: 1.2 },
+      { tipo: 'balas_paja', lado: 'ambos', desde: red(total * 2 / 6 - 16), hasta: red(total * 2 / 6 + 16), separacion: 1.4 },
+      { tipo: 'balas_paja', lado: 'ambos', desde: red(total * 5 / 6 - 16), hasta: red(total * 5 / 6 + 16), separacion: 1.4 },
+      { tipo: 'valla_publi', lado: 'izq', desde: 12, hasta: 34, separacion: 3 }
+    );
+    if (cfg.barreraLateral) {
+      c.barreras.push({ tipo: cfg.barreraLateral, lado: 'ambos', desde: 44, hasta: red(total - 44), separacion: 3.8 });
+    }
+
+    // Riachuelo(s) cruzando la pista en un sector alejado del pueblo (para garantizar puente + vado)
+    let rio = null, rio2 = null;
+    if (cfg.rioDesdeCentro) {
+      // En islas: nacen en el interior alto y bajan hacia el mar cruzando el circuito costero
+      let pico = { x: 0, z: 0, h: alturaEn(esc, 0, 0) };
+      for (let k = 0; k < 40; k++) {
+        const a = k / 40 * Math.PI * 2, x = Math.cos(a) * R * 0.35, z = Math.sin(a) * R * 0.35;
+        const h = alturaEn(esc, x, z);
+        if (h > pico.h) pico = { x, z, h };
+      }
+      const pCruces = [enD(total * 0.18), enD(total * 0.82)];
+      const hacerBrazo = (dest, anchoB, nombreB) => {
+        const dx = dest.x - pico.x, dz = dest.z - pico.z, dl = Math.hypot(dx, dz) || 1;
+        const ux = dx / dl, uz = dz / dl;
+        const bpts = [];
+        for (let k = 0; k <= 6; k++) {
+          const dist = (dl * 1.45) * (k / 6);
+          bpts.push({ x: clamp(pico.x + ux * dist, -m * 0.94, m * 0.94), z: clamp(pico.z + uz * dist, -m * 0.94, m * 0.94) });
+        }
+        const rB = crearCamino(esc, { tipo: 'riachuelo', ancho: anchoB, profundidad: cfg.profundidadRio || 0.7, nombre: nombreB, puntos: bpts });
+        ajustarTerrenoACamino(esc, rB);
+        return rB;
+      };
+      rio = hacerBrazo(pCruces[0], cfg.anchoRio || 5.0, 'Río de la Isla');
+      rio2 = hacerBrazo(pCruces[1], 4.2, 'Arroyo de la Playa');
+    } else {
+      const refRio = enD(total * 0.19);
+      const zR = pueblo ? (pueblo.z > 0 ? -m * 0.28 : m * 0.28) : refRio.z;
+      const N2 = crearRuido(rng.int(1, 1e6));
+      const rpts = [];
+      for (let k = 0; k <= 10; k++) {
+        const x = -m * 0.94 + k * m * 0.188;
+        let z = zR + N2.ruido(k * 0.55, 4.7) * m * 0.14;
+        if (pueblo && Math.hypot(x - pueblo.x, z - pueblo.z) < hP + 28) {
+          z += (z >= pueblo.z ? 1 : -1) * (hP + 32);
+        }
+        rpts.push({ x, z: clamp(z, -m * 0.92, m * 0.92) });
+      }
+      if (alturaEn(esc, rpts[0].x, rpts[0].z) < alturaEn(esc, rpts[rpts.length - 1].x, rpts[rpts.length - 1].z)) rpts.reverse();
+      rio = crearCamino(esc, { tipo: 'riachuelo', ancho: cfg.anchoRio || 5.5, profundidad: cfg.profundidadRio || undefined, nombre: 'Riachuelo', puntos: rpts });
+      ajustarTerrenoACamino(esc, rio);
+    }
+
+    // Lagos evitando la pista, el pueblo y el riachuelo
+    const lagos = [];
+    for (const R of (cfg.radiosLago || [58, 32])) {
+      const s2 = buscarSitio(esc, rng, (x, z) =>
+        Math.abs(x) < m - R * 1.6 && Math.abs(z) < m - R * 1.6 &&
+        distanciaACamino(c, x, z, mu) > R * 1.45 + 22 &&
+        (!pueblo || Math.hypot(x - pueblo.x, z - pueblo.z) > hP + R * 1.45) &&
+        (!rio || distanciaACamino(rio, x, z) > R * 1.45 + 12) &&
+        (!rio2 || distanciaACamino(rio2, x, z) > R * 1.45 + 12) &&
+        (!cfg.agua || alturaEn(esc, x, z) > (cfg.agua.nivel || 0) + 3) &&
+        lagos.every(l => Math.hypot(l.x - x, l.z - z) > (l.props.radio + R) * 1.7), 1200);
+      if (!s2) continue;
+      const lago = crearElemento(esc, 'lago', s2.x, s2.z, { radio: R, nombre: R > 45 ? 'Lago grande' : 'Lago', forma: rng.int(1, 99999) });
+      excavarLago(esc, lago);
+      lagos.push(lago);
+    }
+
+    // Poner puentes dejando el primer cruce como vado natural (si hay >= 2 cruces)
+    const cruces = crucesCaminoRio(esc).filter(cr => cr.camino.id === c.id);
+    const modelosP = cfg.puentes || ['romano', 'madera', 'riotinto'];
+    if (cruces.length >= 2) {
+      ponerPuentes(esc, { modelos: modelosP, vados: 1 });
+    } else if (cruces.length === 1) {
+      ponerPuentes(esc, { modelos: modelosP, vados: 0 });
+    }
+
+    // Bosques y rocas adaptados al bioma
+    const libre = (x, z) =>
+      distanciaACamino(c, x, z, mu) > 42 &&
+      (!pueblo || Math.hypot(x - pueblo.x, z - pueblo.z) > hP + 24) &&
+      (!rio || distanciaACamino(rio, x, z) > 14) &&
+      (!rio2 || distanciaACamino(rio2, x, z) > 14) &&
+      (!cfg.agua || alturaEn(esc, x, z) > (cfg.agua.nivel || 0) + 1.5) &&
+      lagos.every(l => Math.hypot(l.x - x, l.z - z) > l.props.radio * 1.4 + 10);
+
+    for (let k = 0; k < (cfg.numBosques || 14); k++) {
+      const s = buscarSitio(esc, rng, libre);
+      if (s) {
+        crearElemento(esc, 'bosque', s.x, s.z, {
+          radio: rng.int(28, 78),
+          densidad: rng.range(cfg.densidadBosque?.[0] || 4, cfg.densidadBosque?.[1] || 9),
+          especie: rng.pick(cfg.especies || ['mixto'])
+        });
+      }
+    }
+    for (let k = 0; k < (cfg.numRocas || 9); k++) {
+      const s = buscarSitio(esc, rng, (x, z) => {
+        const d = distanciaACamino(c, x, z, mu);
+        return d > 13 && d < 34 && (!pueblo || Math.hypot(x - pueblo.x, z - pueblo.z) > hP) && (!cfg.agua || alturaEn(esc, x, z) > (cfg.agua.nivel || 0) + 1);
+      });
+      if (s) {
+        crearElemento(esc, 'rocas', s.x, s.z, {
+          radio: 11,
+          cantidad: cfg.cantRocas || 8,
+          tamMin: cfg.tamRoca?.[0] || 0.8,
+          tamMax: cfg.tamRoca?.[1] || 2.8,
+          piedra: cfg.piedra || 'mezcla',
+          forma: cfg.formaRoca || 'variada'
+        });
+      }
+    }
+  }
+
+  registrarPlantilla({ id: 'rally_sierra', nombre: 'Rally Sierra Nevada', icono: '❄️',
+    desc: 'Puerto alpino nevado con asfalto, tramos de nieve y grava, aldea nórdica, puentes y vado helado.',
+    tam: 1536, bioma: 'nevado',
+    aplicar(esc, rng) {
+      construirCircuitoRally(esc, rng, {
+        terreno: { tipo: 'colinas', escala: 360, altura: 52, octavas: 5 },
+        ambiente: { hora: 9.1, niebla: 0.24, nubes: 0.45 },
+        tipoCamino: 'asfalto', ancho: 11, bordesCamino: true,
+        tramos: [
+          { desdeF: 0.14, hastaF: 0.30, tipo: 'nieve', barrera: 'guardarrail' },
+          { desdeF: 0.72, hastaF: 0.84, tipo: 'grava' }
+        ],
+        barreraLateral: 'guardarrail',
+        pueblo: { nombre: 'Puerto Blanco', style: 'nordic', casas: 'glb', size: 4, treeDensity: 25 },
+        puentes: ['romano', 'madera'],
+        especies: ['pinsapo', 'abeto'],
+        densidadBosque: [5, 10],
+        piedra: 'gris'
+      });
+    } });
+
+  registrarPlantilla({ id: 'rally_desierto', nombre: 'Rally del Desierto', icono: '🏜',
+    desc: 'Dunas y cañones al atardecer con pista rápida de arena y tierra, oasis, poblado y formaciones de roca ocre.',
+    tam: 1536, bioma: 'desierto',
+    aplicar(esc, rng) {
+      construirCircuitoRally(esc, rng, {
+        terreno: { tipo: 'dunas', escala: 350, altura: 34, octavas: 5 },
+        ambiente: { hora: 17.0, niebla: 0.22, nubes: 0.24 },
+        tipoCamino: 'arena', ancho: 12,
+        amplitudForma: 0.50,
+        tramos: [
+          { desdeF: 0.15, hastaF: 0.32, tipo: 'tierra', barrera: 'balas_paja' },
+          { desdeF: 0.76, hastaF: 0.88, tipo: 'grava' }
+        ],
+        barreraLateral: 'cinta',
+        pueblo: { nombre: 'Oasis Sur', style: 'desert', casas: 'original', size: 4, treeDensity: 20 },
+        puentes: ['madera', 'romano'],
+        radiosLago: [62, 28],
+        especies: ['palmera_datilera', 'cactus'],
+        densidadBosque: [1.5, 4],
+        numBosques: 12,
+        piedra: 'ocre', formaRoca: 'aguja', tamRoca: [1.4, 4.2], cantRocas: 9
+      });
+    } });
+
+  registrarPlantilla({ id: 'rally_otono', nombre: 'Rally Bosque de Otoño', icono: '🍂',
+    desc: 'Tarde dorada entre hayedos y liquidámbares con asfalto rápido, zonas profundas de barro, aldea y puentes.',
+    tam: 1536, bioma: 'otono',
+    aplicar(esc, rng) {
+      construirCircuitoRally(esc, rng, {
+        terreno: { tipo: 'colinas', escala: 390, altura: 42, octavas: 5 },
+        ambiente: { hora: 16.3, niebla: 0.28, nubes: 0.48 },
+        tipoCamino: 'grava', ancho: 11,
+        tramos: [
+          { desdeF: 0.11, hastaF: 0.28, tipo: 'asfalto', barrera: 'guardarrail' },
+          { desdeF: 0.40, hastaF: 0.46, tipo: 'barro' },
+          { desdeF: 0.82, hastaF: 0.89, tipo: 'barro' }
+        ],
+        barreraLateral: 'valla_madera',
+        pueblo: { nombre: 'Valdorado', style: 'european', casas: 'glb', size: 4, treeDensity: 32 },
+        puentes: ['romano', 'madera', 'torreon'],
+        especies: ['liquidambar', 'mixto'],
+        densidadBosque: [6, 11], numBosques: 16,
+        piedra: 'musgo'
+      });
+    } });
+
+  registrarPlantilla({ id: 'rally_costa', nombre: 'Rally Costa Tropical', icono: '🏝',
+    desc: 'Circuito isleño rodeando el mar con asfalto costero, playa de arena, puentes de hierro y palmeras.',
+    tam: 1536, bioma: 'tropical',
+    aplicar(esc, rng) {
+      construirCircuitoRally(esc, rng, {
+        terreno: { tipo: 'isla', escala: 390, altura: 40, octavas: 5, base: -4 },
+        agua: { activa: true, nivel: 0, color: '#1f9fa8' },
+        bordes: 'infinito',
+        ambiente: { hora: 11.2, niebla: 0.16, nubes: 0.34 },
+        tipoCamino: 'asfalto', ancho: 11, bordesCamino: true,
+        radioFactor: 0.25, amplitudForma: 0.28, elevMinima: 4.8, profundidadRio: 0.75, rioDesdeCentro: true,
+        tramos: [
+          { desdeF: 0.16, hastaF: 0.28, tipo: 'arena' },
+          { desdeF: 0.74, hastaF: 0.86, tipo: 'grava', barrera: 'guardarrail' }
+        ],
+        barreraLateral: 'guardarrail',
+        pueblo: { nombre: 'Puerto Palma', style: 'andaluz', casas: 'andaluza', size: 3, treeDensity: 30 },
+        puentes: ['riotinto', 'muelle'],
+        radiosLago: [38],
+        especies: ['palmera_datilera', 'liquidambar'],
+        densidadBosque: [4, 8],
+        piedra: 'granito'
+      });
+    } });
+
   registrarPlantilla({ id: 'plataformas', nombre: 'Plataformas', icono: '🍄', desc: 'Lago con una cadena de plataformas flotantes que suben hasta la meta.',
     tam: 512, bioma: 'tropical',
     aplicar(esc, rng) {
@@ -1272,7 +1698,7 @@
     const esc = crearVacio(Object.assign({}, opts, { semilla, tam: opts.tam || pl.tam || 1024, bioma: opts.bioma || pl.bioma || 'templado', plantilla: pl.id }));
     esc.terreno.gen.semilla = semilla;
     pl.aplicar(esc, crearAzar(semilla * 31 + 7));
-    if (opts.nombre) esc.nombre = opts.nombre; else esc.nombre = pl.nombre + ' ' + semilla;
+    if (opts.nombre) esc.nombre = opts.nombre; else esc.nombre = pl.disenado ? pl.nombre : pl.nombre + ' ' + semilla; // los diseñados no dependen de la semilla
     return esc;
   }
 
@@ -1352,7 +1778,7 @@
     TIPOS_BARRERA, LADOS, largoCamino, enTramo, superficieEn, proyectarEnCamino, caminoEn,
     crearCamino, muestrearCamino, rasante, ajustarTerrenoACamino, materialCamino, distanciaACamino,
     dentroTerrenoPueblo, atravesarPueblo,
-    PUENTES, excavarLago, crucesCaminoRio, ajustarPuenteACamino, ponerPuentes, puentesDeCamino,
+    PUENTES, excavarLago, crucesCaminoRio, ajustarPuenteACamino, ponerPuentes, puentesDeCamino, terraplenesPuentes, puntoEnD, aguaEn, alturaCalzadaEn,
     esRio, profundidadRio, nivelesRio, mitadTerrenoPueblo, puntoSalidaPueblo, anguloLocalPueblo, conectarCaminosPueblo,
     crearElemento, buscarElemento, buscarCamino, quitar, duplicarElemento, radioElemento, prepararPueblo, copiaProfunda,
     serializar, deserializar, remuestrear, bytesABase64, base64ABytes

@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { Pista } from '../juego/pista.js';
+import { Pista, SUPERFICIES } from '../juego/pista.js';
 import { Coche } from '../juego/coche.js';
 import { Obstaculos } from '../juego/obstaculos.js';
 import { Cronometro } from '../juego/cronometro.js';
@@ -100,3 +100,50 @@ test('el coche choca con una barrera y no la atraviesa', () => {
   assert.ok(golpes > 0, 'hay choque');
   assert.ok(maxLat + MEDIDAS.largo / 2 < linea + 0.3, 'no la atraviesa (con el morro)');
 });
+
+// Los circuitos diseñados de Mundos- (js/rally-disenado.js): el piloto automático da la vuelta entera a cada uno,
+// pasando los controles en orden, por los puentes por encima y por los vados por el agua, sin quedarse atascado.
+const ED = createRequire(import.meta.url)('../vendor/mundos/js/rally-disenado.js');
+for (const id of Object.keys(ED.CIRCUITOS)) {
+  test('circuito diseñado ' + id + ': una vuelta con el piloto automático', () => {
+    const e = ED.crear({ plantilla: id });
+    const pi = new Pista(ED, e), p = pi.caminos.find(x => x.cerrado);
+    const coche = new Coche(pi, MEDIDAS, { masa: 1150, potencia: 200 });
+    const obs = new Obstaculos(ED, e, pi);
+    const ini = e.elementos.find(x => x.tipo === 'inicio');
+    coche.reiniciar(ini.x, ini.z, ini.rotY * Math.PI / 180);
+    const crono = new Cronometro(e, pi, 1, 'prueba-' + id);
+    crono.empezar();
+    const pil = (c, d) => { // el mismo piloto, pero que tiene en cuenta el agarre (nieve, grava) y frena antes
+      const v = c.velocidad, q = pi.puntoEn(p, d + 9 + v * 0.7);
+      let dif = Math.atan2(q.x - c.x, q.z - c.z) - c.rumbo; while (dif > Math.PI) dif -= 2 * Math.PI; while (dif < -Math.PI) dif += 2 * Math.PI;
+      const a = pi.puntoEn(p, d);
+      let curva = 0;
+      for (const ad of [20, 35, 50 + v * 1.2]) { const b = pi.puntoEn(p, d + ad); curva = Math.max(curva, Math.acos(Math.max(-1, Math.min(1, a.dx * b.dx + a.dz * b.dz)))); }
+      const agarre = (SUPERFICIES[pi.consultar(c.x, c.z).tipo] || SUPERFICIES.tierra).agarre;
+      const baja = Math.max(0, (pi.consultar(a.x, a.z).y - pi.consultar(pi.puntoEn(p, d + 40).x, pi.puntoEn(p, d + 40).z).y) / 40); // cuesta abajo
+      const vObj = Math.max(8, (30 - curva * 34) * Math.sqrt(Math.min(1, agarre / 0.74)) * (1 - Math.min(0.5, baja * 3)));
+      return { gas: v < vObj ? 1 : 0, freno: v > vObj + 3 ? 0.6 : 0, giro: Math.max(-1, Math.min(1, -dif * 2.2)), manoFreno: false, analogico: true };
+    };
+    let d = pi.proyectar(p, coche.x, coche.z).d, vMax = 0, agua = 0, puente = false, enAire = 0, aireMax = 0, sups = new Set();
+    const controles = [];
+    for (let k = 0; k < 120 * 500 && crono.estado !== 'fin'; k++) {
+      const px = coche.x, pz = coche.z;
+      coche.paso(1 / 120, pil(coche, d), obs);
+      crono.actualizar(1 / 120, px, pz, coche.x, coche.z);
+      controles.push(...crono.eventos.filter(x => x.tipo === 'control').map(x => x.n));
+      const pr = pi.proyectar(p, coche.x, coche.z, 30); if (pr) d = pr.d;
+      assert.ok(Number.isFinite(coche.x + coche.z + coche.y), 'sin NaN');
+      vMax = Math.max(vMax, coche.velocidad);
+      const q = pi.consultar(coche.x, coche.z);
+      if (q.puente) puente = true;
+      agua = Math.max(agua, q.agua || 0);
+      enAire = coche.enSuelo ? 0 : enAire + 1 / 120; aireMax = Math.max(aireMax, enAire);
+      for (const w of coche.ruedas) sups.add(w.sup);
+    }
+    console.log(`  ${id}: vuelta ${crono.t.toFixed(1)} s · v máx ${(vMax * 3.6).toFixed(0)} km/h · ${puente ? 'puente' : 'sin puente'} · agua máx ${agua.toFixed(2)} m · vuelo máx ${aireMax.toFixed(2)} s · ${[...sups].join(', ')}`);
+    assert.equal(crono.estado, 'fin', 'llega a la meta');
+    assert.deepEqual(controles, [1, 2, 3, 4, 5], 'controles en orden');
+    if (pi.caminos.some(x => x.puentes.length)) assert.ok(puente, 'cruza un puente por encima');
+  });
+}

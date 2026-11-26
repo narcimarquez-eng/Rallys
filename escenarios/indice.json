@@ -1,6 +1,57 @@
 [
-  { "id": "rally-4242", "nombre": "Circuito de Villarrally", "icono": "⛪", "plantilla": "rally", "semilla": 4242,
-    "desc": "Plantilla «rally» de Mundos- (semilla 4242), la del editor: grava, asfalto, barro, pueblo andaluz con su iglesia y un puente sobre el arroyo." },
-  { "id": "rally-123", "nombre": "Valle de las Encinas", "icono": "🌳", "archivo": "escenarios/valle-encinas.escenario.json",
-    "desc": "Otro circuito (semilla 123, al atardecer), con dos puentes y un vado, exportado desde Mundos- como .escenario.json." }
+  {
+    "id": "campos",
+    "nombre": "Campos de Castilla",
+    "icono": "🌾",
+    "plantilla": "rally_campos",
+    "semilla": 1,
+    "desc": "Tierra y grava rápidas entre trigales y dehesa: salto en la recta de salida, subida al cerro, puente de piedra, horquilla, vado y pueblo blanco."
+  },
+  {
+    "id": "puerto",
+    "nombre": "Puerto del Pinsapar",
+    "icono": "⛰",
+    "plantilla": "rally_puerto",
+    "semilla": 1,
+    "desc": "Puerto de montaña: subida de asfalto con tres horquillas encadenadas, cresta con vistas y bajada de grava entre pinsapos hasta el puente romano."
+  },
+  {
+    "id": "boreal",
+    "nombre": "Bosque Boreal",
+    "icono": "🌲",
+    "plantilla": "rally_boreal",
+    "semilla": 1,
+    "desc": "Nieve entre pinsapos con curvas enlazadas y cuatro lomos para volar, puente de madera, vado y aldea nórdica."
+  },
+  {
+    "id": "tabernas",
+    "nombre": "Rambla de Tabernas",
+    "icono": "🏜",
+    "plantilla": "rally_tabernas",
+    "semilla": 1,
+    "desc": "Desierto: saltos en las dunas, el cañón entre dos mesetas de roca, la rambla seca y un oasis con palmeras junto al poblado."
+  },
+  {
+    "id": "acantilados",
+    "nombre": "Costa de los Acantilados",
+    "icono": "🌊",
+    "plantilla": "rally_acantilados",
+    "semilla": 1,
+    "desc": "Asfalto al borde del acantilado sobre el mar, puente de hierro sobre la cala y vuelta por grava entre pinos piñoneros."
+  },
+  {
+    "id": "rally-4242",
+    "nombre": "Circuito de Villarrally",
+    "icono": "⛪",
+    "plantilla": "rally",
+    "semilla": 4242,
+    "desc": "Plantilla «rally» de Mundos- (semilla 4242), la del editor: grava, asfalto, barro, pueblo andaluz con su iglesia y un puente sobre el arroyo."
+  },
+  {
+    "id": "rally-123",
+    "nombre": "Valle de las Encinas",
+    "icono": "🌳",
+    "archivo": "escenarios/valle-encinas.escenario.json",
+    "desc": "Otro circuito (semilla 123, al atardecer), con dos puentes y un vado, exportado desde Mundos- como .escenario.json."
+  }
 ]
