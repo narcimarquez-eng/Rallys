@@ -5,7 +5,8 @@
 //  · Raíz «LuxuryCar» con grupos Body, Cabin, FrontDetails, RearDetails, SideDetails, Interior y Wheels.
 //  · Wheels tiene 4 grupos «Wheel» (al cargar: Wheel, Wheel_1…) con el origen en el centro de la rueda, en
 //    (±ancho de vía/2, radio, ±eje). El nombre no dice cuál es cuál: se sabe por su posición.
-//  · El conductor va en −x (asientos «SeatCushionF_-1»): el volante está a ese lado.
+//  · El conductor va en −x (asiento «SeatFront_-1», o «SeatCushionF_-1» en la versión antigua).
+//  · Versión realista: cada rueda es «Wheel_FL/FR/RL/RR» (buje, con la pinza de freno) y dentro «WheelSpin_…», que gira.
 //  · Trae luces puntuales (una por rueda y otra en la cabina) y, si había una zona seleccionada al exportar, la caja
 //    azul de selección (malla en alambre sin nombre). Aquí se quitan; también las mallas con vértices NaN (algunas
 //    piezas de detalle salen con medidas NaN).
@@ -42,7 +43,9 @@ export async function cargarCoche(fuente, opciones) {
 
   // Ruedas: por nombre, y si no, mallas o grupos casi cilíndricos cerca de las cuatro esquinas inferiores
   let ruedas = [];
-  raiz.traverse(o => { if (/^(wheel|rueda)(_\d+)?$/i.test(o.name) && !ruedas.some(r => isAncestro(r, o))) ruedas.push(o); });
+  // (en la versión realista del creador, «WheelSpin_FL»… es la parte que gira; la pinza de freno va aparte)
+  raiz.traverse(o => { if (/^WheelSpin_[FR][LR]$/.test(o.name)) ruedas.push(o); });
+  if (ruedas.length < 4) { ruedas = []; raiz.traverse(o => { if (/^(wheel|rueda)(_\d+)?$/i.test(o.name) && !ruedas.some(r => isAncestro(r, o))) ruedas.push(o); }); }
   if (ruedas.length < 4) ruedas = buscarRuedasPorForma(raiz);
   const caja = new THREE.Box3();
   const cajaCuerpo = new THREE.Box3();
@@ -108,11 +111,14 @@ export async function cargarCoche(fuente, opciones) {
   }
   // Cabina: el asiento del conductor (en Hacer coches, el delantero de −x) o, si no, una posición razonable
   let asiento = null;
-  raiz.traverse(o => { if (!asiento && /^SeatCushionF_-1/.test(o.name)) asiento = o; });
+  raiz.traverse(o => { if (!asiento && /^(SeatCushionF_-1|SeatFront_-1)/.test(o.name)) asiento = o; });
   let ojos;
   if (asiento) {
     const b = new THREE.Box3().setFromObject(asiento), c = b.getCenter(new THREE.Vector3());
-    ojos = new THREE.Vector3(c.x, Math.min(b.max.y + 0.72, medidas.techo - 0.12), c.z - 0.12);
+    // «SeatFront» (versión realista) es el asiento entero, con respaldo: los ojos, a un metro del suelo del coche.
+    // «SeatCushion» (antigua) es solo el cojín: los ojos, unos 72 cm por encima.
+    const y = /^SeatFront/.test(asiento.name) ? b.min.y + 1.0 : b.max.y + 0.72;
+    ojos = new THREE.Vector3(c.x, Math.min(y, medidas.techo - 0.12), c.z - 0.12);
   } else {
     ojos = new THREE.Vector3(-medidas.via * 0.22, medidas.techo - 0.22, medidas.ejeTras + medidas.batalla * 0.45);
   }

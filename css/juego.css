@@ -36,6 +36,7 @@ h2 { font-size: 1.05rem; margin: 18px 0 8px; color: var(--acento); text-transfor
 button.destacado { border-color: var(--acento); }
 /* Ficha del coche generado: foto, datos y barras de estadísticas */
 .ficha { margin-top: 10px; background: #151b22; border: 1px solid #2a3440; border-radius: 12px; padding: 12px; }
+.ficha .generando { margin: 6px 2px; color: var(--suave); }
 .ficha-cabeza { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; }
 .ficha-cabeza img { width: 180px; max-width: 45%; aspect-ratio: 9 / 5; object-fit: cover; border-radius: 8px; background: #0d1116; }
 .ficha-cabeza div { display: flex; flex-direction: column; gap: 3px; }

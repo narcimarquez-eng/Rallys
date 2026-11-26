@@ -23,7 +23,7 @@ atrás; hay que pasar los **puntos de control en orden** y cruzar la **meta** en
 Escenarios que se pueden cargar:
 - Los de `escenarios/indice.json`: la plantilla «rally» de Mundos- generada al vuelo (`"plantilla": "rally", "semilla": 4242`) o un `.escenario.json` exportado (`"archivo": …`).
 - **📂 Abrir .escenario.json** (exportado con 💾 en Mundos-) o **🔗 una dirección web** a uno.
-- `index.html?escenario=https://…/mi.escenario.json` abre ese directamente (también `&coche=urban&vueltas=3&camara=cabina&jugar`).
+- `index.html?escenario=https://…/mi.escenario.json` abre ese directamente (también `&coche=retro&vueltas=3&camara=cabina&jugar`).
 - Si el juego y Mundos- se publican en el mismo sitio (p. ej. los dos en `narcimarquez-eng.github.io`), salen además
   **los escenarios guardados en el Creador** (comparten el almacén del navegador).
 
@@ -48,39 +48,54 @@ tools/actualizar-mundos.sh --rama claude/world-generator-viewer-kk0hn3   # clona
 El escenario se dibuja con `Escena3D` de Mundos- tal cual, así que se ve igual que en el visor.
 
 ## Los coches de Hacer coches
-`parametric_car.html` → «⬇ Exportar GLB» (GLTFExporter, binario):
+Se usa el **creador realista**: `Parametric Car 3D Studio (2).html` de la rama `ccr-b02f9bfd-g5ar6l` (carrocería por
+secciones, piezas modeladas en Blender incrustadas en la página, ópticas recortadas con booleanas…). La página
+`parametric_car.html` de `main` es la versión antigua, de cajas, y ya no se usa.
+
+```bash
+tools/actualizar-hacer-coches.sh                 # copia el creador de la rama ccr-b02f9bfd-g5ar6l (por defecto)
+tools/actualizar-hacer-coches.sh --rama main     # u otra rama, o una carpeta: tools/actualizar-hacer-coches.sh ../Hacer-coches-
+node tools/exportar-coches-fijos.cjs             # (con el juego servido en :8080) rehace coches/*.glb y sus fotos
+```
+`actualizar-hacer-coches.sh` copia la página **entera y sin tocarla** en `vendor/hacer-coches/creador.html` y solo le
+añade al final un «puente» (`window.__rallys`) para pedirle coches desde el juego. Así, cuando el creador mejore, basta
+con volver a ejecutarlo.
+
+Formato del coche (lo que sale del creador, en `.glb` o directamente como grupo de three.js):
 - **Metros**, **+Y arriba**, **morro hacia +Z**, suelo en y = 0 (las ruedas lo tocan).
-- Raíz `LuxuryCar` con `Body`, `Cabin`, `FrontDetails`, `RearDetails`, `SideDetails`, `Interior` y `Wheels`.
-- **Ruedas separadas**: 4 grupos `Wheel` con el origen en el centro de la rueda, en (±vía/2, radio, ±eje). Todas se
-  llaman igual: el juego las distingue por su posición (x > 0 izquierda, z > 0 delante).
-- El conductor va en −x (`SeatCushionF_-1`, volante a ese lado): de ahí sale la cámara de cabina.
+- **Ruedas separadas**: `Wheel_FL`, `Wheel_FR`, `Wheel_RL`, `Wheel_RR` (buje, con la pinza de freno) y dentro
+  `WheelSpin_…`, la parte que gira, con el origen en el centro de la rueda.
+- El conductor va en −x (`SeatFront_-1`): de ahí sale la cámara de cabina; la de capó, delante del `Windshield`.
 
 `juego/modelo-coche.js` lo encaja: detecta ruedas, ejes, batalla, vía, radio y medidas, saca cada rueda a un pivote
-(dirección + giro + suspensión), pone la carrocería en otro (cabeceo y balanceo) y coloca las cámaras de capó
-(delante del parabrisas `Windshield`) y cabina. Con otros `.glb` busca las ruedas por forma y, si vienen en otra
-escala o «de lado», los corrige. `tools/` no exporta coches: los `.glb` de `coches/` se sacaron con el botón de
-exportar de Hacer coches (las cinco de su colección).
+(dirección + giro + suspensión), pone la carrocería en otro (cabeceo y balanceo) y coloca las cámaras. Con otros
+`.glb` busca las ruedas por forma y, si vienen en otra escala o «de lado», los corrige.
+
+**Coches fijos** (`coches/`): los seis diseños del creador (fastback, crossover, hatch retro, GT cuatro puertas,
+monovolumen y el SUV de parrilla paramétrica), exportados en su versión ligera (gltfpack, 2–3 MB cada uno). Sus datos
+para la física (peso, potencia, tracción, suspensión, neumáticos) están en `coches/indice.json`.
 
 ## Coches generados al momento (🎲)
 
-En el menú, **🎲 Generar un coche nuevo** crea un coche con el mismo generador de Hacer coches (su botón «🎲 Aleatorio»)
+En el menú, **🎲 Generar un coche nuevo** crea un coche con el creador realista (lo mismo que su botón «🎲 Aleatorio»)
 y le reparte unas **estadísticas al azar** que se ven en barras: potencia, aceleración (kg/CV), agarre en asfalto,
 agarre en tierra, suspensión, frenos y peso, además del tipo de carrocería, la tracción y los neumáticos.
 
+- El creador se abre **oculto en un `<iframe>`** (la primera vez tarda unos segundos: son 3 MB) y se le pide el coche.
+  Su grupo de three.js se copia a este lado (`juego/generador-coche.js`) en vez de exportarlo a `.glb`: construirlo
+  tarda menos de un segundo y exportarlo, mucho más.
 - No son del todo al azar: la **carrocería** marca el peso, el recorrido de suspensión y la altura del centro de
   gravedad (un todoterreno pesa más y tiene más suspensión que un cupé), y el **dibujo de los neumáticos** marca el agarre
   (los de carreras agarran más en asfalto y menos en tierra; los todo terreno, al revés). Potencia, tracción (delantera,
   total o trasera), frenos y dirección salen al azar dentro de márgenes creíbles.
-- Todo sale de una **semilla**: la misma semilla da el mismo coche y las mismas estadísticas. Por eso **⭐ Guardar en el
-  garaje** solo guarda el número (hasta 8 coches), y `?coche=gen:806864` en la dirección abre ese coche.
-- El generador no se reescribe: `tools/actualizar-hacer-coches.sh` copia tal cual, de `parametric_car.html`, las
-  secciones 1 a 6 (parámetros, modelos, texturas, materiales y piezas) y las funciones `applyPresetGlass` y `randomize`
-  a `vendor/hacer-coches/generador.js`. `juego/generador-coche.js` lo usa para construir el coche y sacar la foto, y le
-  añade las estadísticas.
-- La física tiene dos datos nuevos para esto, `agarreFirme` y `agarreSuelto`, que multiplican el agarre de cada
+- Todo sale de una **semilla**: la misma semilla da el mismo coche y las mismas estadísticas. **⭐ Guardar en el
+  garaje** guarda la semilla, la ficha y la foto (hasta 8 coches); el coche en 3D se vuelve a construir al correr.
+  `?coche=gen:128394` en la dirección abre ese coche.
+- La física tiene dos datos para los neumáticos, `agarreFirme` y `agarreSuelto`, que multiplican el agarre de cada
   superficie.
 
 ![Coches generados](docs/capturas/g-generador.png)
+![En carrera: generado, SUV y GT; cabina y capó](docs/capturas/g-coches-realistas.png)
 
 ## Cómo está hecho (`juego/`)
 | Archivo | Qué hace |
@@ -122,11 +137,10 @@ encima del cauce, asfalto/grava/adoquín y la meta) y un choque contra el guarda
    (escenario «Valle de las Encinas»). Y en `setHora`, a las 18:30 ya es de noche.
 
 ## Qué falta en Hacer coches
-1. Al exportar se cuelan **la caja azul de selección** (si hay una zona elegida) y **las luces** de las ruedas y la
-   cabina; varias piezas pequeñas salen con **vértices NaN**. El juego las quita, pero conviene arreglarlo allí.
-2. **Nombrar las ruedas** (`Rueda_DI`, `Rueda_DD`, `Rueda_TI`, `Rueda_TD`) y guardar en `extras` del glTF los datos
-   del coche (batalla, vía, radio, asiento del conductor, masa y potencia sugeridas).
-3. Un botón para **exportar toda la colección** de una vez.
+1. Llevar el creador realista a `main` (ahora está en la rama `ccr-b02f9bfd-g5ar6l`) o decir cuál es la buena.
+2. Guardar en `extras` del glTF los datos del coche (batalla, vía, radio, asiento del conductor, masa y potencia
+   sugeridas) y que el aleatorio sortee también el dibujo de los neumáticos (ahora lo pone el puente del juego).
+3. Exportar el `.glb` es lento (unos 20 s en un ordenador sin tarjeta gráfica): se va en las texturas.
 
 ## Capturas (Playwright)
 | | |

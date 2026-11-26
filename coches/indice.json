@@ -1,12 +1,14 @@
 [
-  { "id": "urban", "nombre": "Urban Speedster", "icono": "🚙", "archivo": "coches/urban.glb", "desc": "Compacto ligero y ágil: el más fácil de llevar.",
-    "datos": { "masa": 1150, "potencia": 200, "reparto": 0.45 } },
-  { "id": "offroad", "nombre": "Baja 4x4", "icono": "🛻", "archivo": "coches/offroad.glb", "desc": "Todoterreno alto: suspensión larga, ideal para tierra y vados.",
-    "datos": { "masa": 1550, "potencia": 245, "reparto": 0.5, "recorrido": 0.24, "tope": 0.16, "alturaCdg": 0.68, "amortiguacion": 0.34 } },
-  { "id": "supercar", "nombre": "Cyber Wedge", "icono": "🏎", "archivo": "coches/supercar.glb", "desc": "Cupé en cuña muy potente y bajo: rápido en asfalto, nervioso en grava.",
-    "datos": { "masa": 1300, "potencia": 310, "reparto": 0.35, "recorrido": 0.13, "alturaCdg": 0.42 } },
-  { "id": "gt", "nombre": "Gran Turismo Royale", "icono": "🚘", "archivo": "coches/gt.glb", "desc": "Cupé clásico, pesado y estable.",
-    "datos": { "masa": 1450, "potencia": 270, "reparto": 0.4 } },
-  { "id": "phantom", "nombre": "Phantom V8", "icono": "🚖", "archivo": "coches/phantom.glb", "desc": "Berlina larga de lujo: mucho motor y mucha inercia.",
-    "datos": { "masa": 1700, "potencia": 290, "reparto": 0.4, "amortiguacion": 0.32 } }
+  { "id": "retro", "nombre": "Hatch retro urbano", "icono": "🚙", "archivo": "coches/retro.glb", "foto": "coches/retro.jpg", "desc": "Compacto ligero de tracción delantera: el más fácil de llevar.",
+    "datos": { "masa": 1080, "potencia": 165, "reparto": 1, "recorrido": 0.17, "alturaCdg": 0.48 } },
+  { "id": "fastback", "nombre": "Fastback eléctrico", "icono": "🚘", "archivo": "coches/fastback.glb", "foto": "coches/fastback.jpg", "desc": "Berlina eléctrica de tracción total: mucho empuje y el peso de la batería, muy abajo.",
+    "datos": { "masa": 1720, "potencia": 300, "reparto": 0.5, "recorrido": 0.15, "alturaCdg": 0.44, "agarreFirme": 1.04, "agarreSuelto": 0.96 } },
+  { "id": "gt4", "nombre": "GT cuatro puertas", "icono": "🏎", "archivo": "coches/gt4.glb", "foto": "coches/gt4.jpg", "desc": "Potente y bajo, casi de propulsión: rapidísimo en asfalto, nervioso en grava.",
+    "datos": { "masa": 1580, "potencia": 340, "reparto": 0.3, "recorrido": 0.13, "alturaCdg": 0.44, "agarreFirme": 1.08, "agarreSuelto": 0.9 } },
+  { "id": "crossover", "nombre": "Crossover eléctrico", "icono": "🚐", "archivo": "coches/crossover.glb", "foto": "coches/crossover.jpg", "desc": "Alto y cuadrado, tracción total y neumáticos todo terreno: cómodo fuera del asfalto.",
+    "datos": { "masa": 1780, "potencia": 260, "reparto": 0.5, "recorrido": 0.22, "tope": 0.15, "alturaCdg": 0.6, "amortiguacion": 0.34, "agarreFirme": 0.95, "agarreSuelto": 1.1 } },
+  { "id": "tucson", "nombre": "SUV de parrilla paramétrica", "icono": "🛻", "archivo": "coches/tucson.glb", "foto": "coches/tucson.jpg", "desc": "Todoterreno de suspensión larga: el mejor para tierra, barro y vados.",
+    "datos": { "masa": 1650, "potencia": 230, "reparto": 0.45, "recorrido": 0.25, "tope": 0.16, "alturaCdg": 0.66, "amortiguacion": 0.33, "agarreFirme": 0.94, "agarreSuelto": 1.12 } },
+  { "id": "mpv", "nombre": "Monovolumen familiar", "icono": "🚌", "archivo": "coches/mpv.glb", "foto": "coches/mpv.jpg", "desc": "Largo y pesado, de tracción delantera: un reto en las curvas.",
+    "datos": { "masa": 1950, "potencia": 220, "reparto": 1, "recorrido": 0.18, "alturaCdg": 0.64, "amortiguacion": 0.34 } }
 ]
