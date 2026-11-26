@@ -24,11 +24,12 @@ function tieneNaN(geo) {
   return false;
 }
 
-// fuente: URL (string) o ArrayBuffer. opciones: { girar180, escala }
+// fuente: URL (string), ArrayBuffer (un .glb) o un THREE.Object3D ya hecho (los coches generados al momento).
+// opciones: { girar180, escala }
 export async function cargarCoche(fuente, opciones) {
   opciones = opciones || {};
-  const gltf = typeof fuente === 'string' ? await cargador.loadAsync(fuente) : await cargador.parseAsync(fuente, '');
-  const raiz = gltf.scene;
+  const raiz = fuente && fuente.isObject3D ? fuente
+    : (typeof fuente === 'string' ? await cargador.loadAsync(fuente) : await cargador.parseAsync(fuente, '')).scene;
   // Limpieza
   const quitar = [];
   raiz.traverse(o => {

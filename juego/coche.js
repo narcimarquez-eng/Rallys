@@ -28,8 +28,11 @@ export const PARAMS_BASE = {
   alturaCdg: 0.5,        // m del centro de gravedad sobre el suelo
   aire: 0.9,             // N/(m/s)² de resistencia del aire
   frenada: 1.05,         // × peso
-  repartoFreno: 0.64
+  repartoFreno: 0.64,
+  // neumáticos: multiplican el agarre en firme (asfalto, adoquín) y en suelto (todo lo demás)
+  agarreFirme: 1, agarreSuelto: 1
 };
+const FIRMES = new Set(['asfalto', 'piedra']);
 
 function curva(alfa, B) { // fuerza lateral normalizada (−1…1) según el ángulo de deriva
   return Math.sin(1.45 * Math.atan(B * alfa));
@@ -146,7 +149,7 @@ export class Coche {
       w.compAnt = w.comp;
       w.fz = f;
       fy += f; tCab += f * w.lz; tBal += f * w.lx;
-      const agarre = sup.agarre * (q.agua > 0.04 ? 0.9 : 1);
+      const agarre = sup.agarre * (FIRMES.has(q.tipo) ? p.agarreFirme : p.agarreSuelto) * (q.agua > 0.04 ? 0.9 : 1);
       if (w.del) { fzDel += f; if (w.contacto) { agarreDel += agarre; nDel++; } } else { fzTras += f; if (w.contacto) { agarreTras += agarre; nTras++; } }
       if (w.contacto) rodadura += sup.rodadura / 4;
       aguaMax = Math.max(aguaMax, q.agua);

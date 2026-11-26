@@ -61,6 +61,27 @@ El escenario se dibuja con `Escena3D` de Mundos- tal cual, así que se ve igual 
 escala o «de lado», los corrige. `tools/` no exporta coches: los `.glb` de `coches/` se sacaron con el botón de
 exportar de Hacer coches (las cinco de su colección).
 
+## Coches generados al momento (🎲)
+
+En el menú, **🎲 Generar un coche nuevo** crea un coche con el mismo generador de Hacer coches (su botón «🎲 Aleatorio»)
+y le reparte unas **estadísticas al azar** que se ven en barras: potencia, aceleración (kg/CV), agarre en asfalto,
+agarre en tierra, suspensión, frenos y peso, además del tipo de carrocería, la tracción y los neumáticos.
+
+- No son del todo al azar: la **carrocería** marca el peso, el recorrido de suspensión y la altura del centro de
+  gravedad (un todoterreno pesa más y tiene más suspensión que un cupé), y el **dibujo de los neumáticos** marca el agarre
+  (los de carreras agarran más en asfalto y menos en tierra; los todo terreno, al revés). Potencia, tracción (delantera,
+  total o trasera), frenos y dirección salen al azar dentro de márgenes creíbles.
+- Todo sale de una **semilla**: la misma semilla da el mismo coche y las mismas estadísticas. Por eso **⭐ Guardar en el
+  garaje** solo guarda el número (hasta 8 coches), y `?coche=gen:806864` en la dirección abre ese coche.
+- El generador no se reescribe: `tools/actualizar-hacer-coches.sh` copia tal cual, de `parametric_car.html`, las
+  secciones 1 a 6 (parámetros, modelos, texturas, materiales y piezas) y las funciones `applyPresetGlass` y `randomize`
+  a `vendor/hacer-coches/generador.js`. `juego/generador-coche.js` lo usa para construir el coche y sacar la foto, y le
+  añade las estadísticas.
+- La física tiene dos datos nuevos para esto, `agarreFirme` y `agarreSuelto`, que multiplican el agarre de cada
+  superficie.
+
+![Coches generados](docs/capturas/g-generador.png)
+
 ## Cómo está hecho (`juego/`)
 | Archivo | Qué hace |
 |---|---|

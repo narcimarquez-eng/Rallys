@@ -11,6 +11,7 @@ import { Camaras } from './camaras.js';
 import { Controles } from './controles.js';
 import { Sonido } from './sonido.js';
 import { Particulas } from './particulas.js';
+import { generarCoche, fichaCoche, fotoCoche, semillaNueva, barras } from './generador-coche.js';
 
 const E = window.Escenario, A = window.Almacen;
 const $ = id => document.getElementById(id);
@@ -20,7 +21,7 @@ const url = r => new URL(r, RAIZ).href;
 const params = new URLSearchParams(location.search);
 
 // Preferencias
-const prefs = { escenario: null, coche: 'urban', vueltas: 3, camara: 'persecucion', calidad: matchMedia('(pointer: coarse)').matches ? 'baja' : 'media', hora: '', sonido: true, tactil: null };
+const prefs = { escenario: null, coche: 'urban', vueltas: 3, camara: 'persecucion', calidad: matchMedia('(pointer: coarse)').matches ? 'baja' : 'media', hora: '', sonido: true, tactil: null, generados: [] };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('rallys.prefs') || '{}')); } catch (e) { /* nada */ }
 const guardarPrefs = () => { try { localStorage.setItem('rallys.prefs', JSON.stringify(prefs)); } catch (e) { /* nada */ } };
 const esTactil = () => prefs.tactil != null ? prefs.tactil : matchMedia('(pointer: coarse)').matches;
@@ -74,10 +75,71 @@ let elegidoEsc = null, elegidoCoche = null;
 async function cargarIndices() {
   try { indiceEsc = await (await fetch(url('escenarios/indice.json'))).json(); } catch (e) { indiceEsc = []; }
   try { indiceCoches = await (await fetch(url('coches/indice.json'))).json(); } catch (e) { indiceCoches = []; }
+  // Coches generados con el creador de Hacer coches que se han quedado en el garaje (se guardan solo sus semillas)
+  for (const s of prefs.generados || []) { try { indiceCoches.push(cocheGenerado(s)); } catch (e) { console.warn('Coche generado', s, e); } }
   // Escenarios guardados en el Creador (si el juego está publicado en el mismo sitio que Mundos-, comparten el almacén)
   let guardados = [];
   try { guardados = await Promise.race([A.listar(), new Promise(ok => setTimeout(() => ok([]), 1500))]); } catch (e) { guardados = []; }
   for (const g of guardados) indiceEsc.push({ id: 'almacen:' + g.id, nombre: g.nombre, desc: 'Guardado en el Creador de Escenarios · ' + (g.tam || '?') + ' m', icono: '💾', almacen: g.id });
+}
+
+// ---- Coches generados al momento (juego/generador-coche.js) ----
+const MAX_GENERADOS = 8;
+function cocheGenerado(semilla) {
+  const f = fichaCoche(semilla);
+  return { id: 'gen:' + semilla, semilla, nombre: f.nombre, desc: `${f.tipo} · tracción ${f.traccion.toLowerCase()} · neumáticos ${f.neumaticos.toLowerCase()}`,
+    icono: '🎲', datos: f.datos, ficha: f, foto: null };
+}
+// Construye el coche (si hace falta) y le saca la foto para su tarjeta
+function hacerFoto(c) {
+  if (c.foto || !c.semilla) return;
+  try { const g = generarCoche(c.semilla); c.foto = fotoCoche(g.grupo); liberar(g.grupo); } catch (e) { console.warn(e); c.foto = ''; }
+}
+function liberar(obj) { obj.traverse(o => { if (o.isMesh) { o.geometry.dispose(); } }); }
+function nuevoGenerado() {
+  const s = semillaNueva();
+  const c = cocheGenerado(s);
+  hacerFoto(c);
+  // el nuevo sustituye a los generados que no se han «guardado en el garaje»
+  indiceCoches = indiceCoches.filter(x => !x.semilla || x.guardado);
+  indiceCoches.push(c); elegidoCoche = c; prefs.coche = c.id; guardarPrefs();
+  pintarMenu();
+}
+function guardarGenerado(c) {
+  c.guardado = true;
+  prefs.generados = [...(prefs.generados || []).filter(s => s !== c.semilla), c.semilla];
+  while (prefs.generados.length > MAX_GENERADOS) {
+    const fuera = prefs.generados.shift();
+    if (fuera !== (elegidoCoche && elegidoCoche.semilla)) indiceCoches = indiceCoches.filter(x => x.semilla !== fuera);
+  }
+  guardarPrefs(); pintarMenu();
+}
+function quitarGenerado(c) {
+  prefs.generados = (prefs.generados || []).filter(s => s !== c.semilla);
+  indiceCoches = indiceCoches.filter(x => x !== c);
+  if (elegidoCoche === c) { elegidoCoche = indiceCoches[0] || null; prefs.coche = elegidoCoche && elegidoCoche.id; }
+  guardarPrefs(); pintarMenu();
+}
+function pintarFicha() {
+  const d = $('ficha-coche'), c = elegidoCoche;
+  if (!c) { d.hidden = true; d.innerHTML = ''; return; }
+  d.hidden = false;
+  if (!c.ficha) { // coche fijo: solo las barras
+    d.innerHTML = `<ul class="barras">${barras(c.datos || {}).map(b => `<li><span>${b.nombre}</span><i><s style="width:${b.valor * 10}%"></s></i><em>${b.texto}</em></li>`).join('')}</ul>`;
+    return;
+  }
+  const f = c.ficha;
+  d.innerHTML = `<div class="ficha-cabeza">${c.foto ? `<img src="${c.foto}" alt="">` : ''}<div><b>${esc_(c.nombre)}</b>
+      <small>${esc_(f.tipo)} · tracción ${esc_(f.traccion.toLowerCase())} · neumáticos ${esc_(f.neumaticos.toLowerCase())}</small>
+      <small class="semilla">Semilla ${c.semilla}</small></div></div>
+    <ul class="barras">${f.barras.map(b => `<li><span>${b.nombre}</span><i><s style="width:${b.valor * 10}%"></s></i><em>${b.texto}</em></li>`).join('')}</ul>
+    <div class="fila-botones">
+      <button data-f="otro">🎲 Generar otro</button>
+      ${c.guardado ? '<button data-f="quitar">🗑 Quitar del garaje</button>' : '<button data-f="guardar">⭐ Guardar en el garaje</button>'}
+    </div>`;
+  d.querySelector('[data-f="otro"]').onclick = nuevoGenerado;
+  const g = d.querySelector('[data-f="guardar"]'); if (g) g.onclick = () => guardarGenerado(c);
+  const q = d.querySelector('[data-f="quitar"]'); if (q) q.onclick = () => quitarGenerado(c);
 }
 
 function pintarMenu() {
@@ -93,10 +155,12 @@ function pintarMenu() {
   const lc = $('lista-coches'); lc.innerHTML = '';
   for (const c of indiceCoches) {
     const b = document.createElement('button'); b.className = 'tarjeta' + (elegidoCoche && elegidoCoche.id === c.id ? ' elegida' : '');
-    b.innerHTML = `<span class="icono">${c.icono || '🚗'}</span><b>${esc_(c.nombre)}</b><small>${esc_(c.desc || '')}</small><small>${c.datos ? Math.round(c.datos.potencia * 1.36) + ' CV · ' + c.datos.masa + ' kg' : ''}</small>`;
+    if (c.semilla && c.foto === null) setTimeout(() => { hacerFoto(c); pintarMenu(); }, 30); // la foto, en cuanto se pueda
+    b.innerHTML = `${c.foto ? `<img class="foto" src="${c.foto}" alt="">` : `<span class="icono">${c.icono || '🚗'}</span>`}<b>${esc_(c.nombre)}</b><small>${esc_(c.desc || '')}</small><small>${c.datos ? Math.round(c.datos.potencia * 1.36) + ' CV · ' + c.datos.masa + ' kg' : ''}</small>`;
     b.onclick = () => { elegidoCoche = c; prefs.coche = c.id; guardarPrefs(); pintarMenu(); };
     lc.appendChild(b);
   }
+  pintarFicha();
   const r = elegidoEsc && recs[elegidoEsc.id];
   $('record-menu').textContent = r ? `🏆 ${elegidoEsc.nombre}: mejor vuelta ${r.vuelta ? fmt(r.vuelta.t) : '–'}${r['total' + prefs.vueltas] ? ' · mejor carrera a ' + prefs.vueltas + ' vueltas ' + fmt(r['total' + prefs.vueltas].t) : ''}` : '';
 }
@@ -121,6 +185,7 @@ $('btn-url-esc').onclick = () => {
   indiceEsc.push(s); elegidoEsc = s; pintarMenu();
 };
 $('btn-abrir-coche').onclick = () => $('fichero-coche').click();
+$('btn-generar-coche').onclick = nuevoGenerado;
 $('fichero-coche').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   const c = { id: 'archivo:' + f.name, nombre: f.name.replace(/\.glb$/i, ''), desc: 'Archivo .glb', icono: '📦', bytes: await f.arrayBuffer() };
@@ -210,7 +275,7 @@ async function prepararCoche() {
   if (modelo && datosCoche === elegidoCoche && coche && coche.pista === pista) return;
   if (modelo) scene.remove(modelo.objeto);
   const c = elegidoCoche;
-  modelo = await cargarCoche(c.bytes || url(c.archivo), { girar180: c.girar180 });
+  modelo = await cargarCoche(c.semilla ? generarCoche(c.semilla).grupo : (c.bytes || url(c.archivo)), { girar180: c.girar180 });
   datosCoche = c;
   scene.add(modelo.objeto);
   coche = new Coche(pista, modelo.medidas, c.datos);
@@ -510,7 +575,11 @@ function emitirParticulas(dt) {
 (async () => {
   await cargarIndices();
   elegidoEsc = indiceEsc.find(s => s.id === (params.get('escenario') || prefs.escenario)) || indiceEsc[0] || null;
-  elegidoCoche = indiceCoches.find(c => c.id === (params.get('coche') || prefs.coche)) || indiceCoches[0] || null;
+  // ?coche=gen:12345 (o la preferencia guardada) → ese coche generado, aunque no esté en el garaje
+  const pc = params.get('coche') || prefs.coche;
+  if (/^gen:\d+$/.test(pc || '') && !indiceCoches.some(c => c.id === pc)) { try { indiceCoches.push(cocheGenerado(+pc.slice(4))); } catch (e) { /* nada */ } }
+  for (const c of indiceCoches) if (c.semilla && (prefs.generados || []).includes(c.semilla)) c.guardado = true;
+  elegidoCoche = indiceCoches.find(c => c.id === pc) || indiceCoches[0] || null;
   // ?escenario=<dirección de un .json> también vale
   const pe = params.get('escenario');
   if (pe && !indiceEsc.some(s => s.id === pe) && /\.json($|\?)/.test(pe)) { elegidoEsc = { id: 'url:' + pe, nombre: pe.split('/').pop(), desc: pe, icono: '🔗', url: pe }; indiceEsc.push(elegidoEsc); }
