@@ -3,6 +3,6 @@
 // tabla (online/supabase.sql) deciden qué se puede hacer con ella. NUNCA pongas aquí la clave «service_role».
 // Vacío: sin clasificación online (las vueltas y el fantasma propios siguen funcionando en el navegador).
 export const ONLINE = {
-  url: '',   // p. ej. 'https://abcdefghijklmno.supabase.co'
-  clave: ''  // la clave «anon public»
+  url: 'https://ctuloibpobyywclimwws.supabase.co',
+  clave: 'sb_publishable_PCyw5sL4wRU1BCi_WBzjig_Pg0nkHph'  // la «publishable» (o la «anon public» antigua)
 };
