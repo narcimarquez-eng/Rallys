@@ -3,8 +3,8 @@
 # dentro) en vendor/hacer-coches/creador.html, para que el juego genere coches con él.
 #
 # Uso:
-#   tools/actualizar-hacer-coches.sh                                  # rama ccr-b02f9bfd-g5ar6l de GitHub (la más nueva)
-#   tools/actualizar-hacer-coches.sh --rama main                      # otra rama de GitHub
+#   tools/actualizar-hacer-coches.sh                                  # lo publicado en GitHub Pages (la versión buena)
+#   tools/actualizar-hacer-coches.sh --rama ccr-b02f9bfd-g5ar6l       # una rama de GitHub
 #   tools/actualizar-hacer-coches.sh /ruta/a/Hacer-coches-            # una carpeta local, tal como esté
 #
 # La página se copia entera, sin tocar nada de lo que hay: el juego la abre oculta en un <iframe> y el coche sale
@@ -17,13 +17,26 @@ DESTINO=vendor/hacer-coches
 REPO=https://github.com/narcimarquez-eng/Hacer-coches-.git
 PAGINA="Parametric Car 3D Studio (2).html"
 
-RAMA=ccr-b02f9bfd-g5ar6l
+PAGES=https://narcimarquez-eng.github.io/Hacer-coches-
+RAMA=""
 ORIGEN=""
 if [ "${1:-}" = "--rama" ]; then RAMA="$2"; elif [ -n "${1:-}" ]; then ORIGEN="$1"; fi
-if [ -z "$ORIGEN" ]; then
+if [ -n "$RAMA" ]; then
   TMP=$(mktemp -d)
   git clone --depth 1 --branch "$RAMA" "$REPO" "$TMP/Hacer-coches-"
   ORIGEN="$TMP/Hacer-coches-"
+  DE="rama $RAMA, commit $(git -C "$ORIGEN" rev-parse --short HEAD)"
+elif [ -z "$ORIGEN" ]; then
+  # GitHub Pages: la página y gltfpack; el commit publicado sale de la portada (style.css?v=<commit>)
+  TMP=$(mktemp -d)
+  ORIGEN="$TMP/pages"
+  mkdir -p "$ORIGEN/vendor/gltfpack"
+  curl -fsS -o "$ORIGEN/$PAGINA" "$PAGES/Parametric%20Car%203D%20Studio%20(2).html"
+  for f in library.js library.wasm LICENSE.md; do curl -fsS -o "$ORIGEN/vendor/gltfpack/$f" "$PAGES/vendor/gltfpack/$f" || true; done
+  COMMIT=$(curl -fsS "$PAGES/" | grep -o 'style.css?v=[0-9a-f]*' | head -1 | cut -d= -f2 | cut -c1-7)
+  DE="GitHub Pages ($PAGES), commit ${COMMIT:-?}"
+else
+  DE="carpeta $ORIGEN, commit $(git -C "$ORIGEN" rev-parse --short HEAD 2>/dev/null || echo '?')"
 fi
 [ -f "$ORIGEN/$PAGINA" ] || { echo "No encuentro «$PAGINA» en $ORIGEN"; exit 1; }
 grep -q '^(function animate(){' "$ORIGEN/$PAGINA" || { echo "El creador ha cambiado: no encuentro su bucle «animate»"; exit 1; }
@@ -105,6 +118,5 @@ assert i > 0
 open(sys.argv[2], 'w', encoding='utf-8').write(html[:i] + puente + html[i:])
 PY
 
-COMMIT=$(git -C "$ORIGEN" rev-parse --short HEAD 2>/dev/null || echo '?')
-echo "Origen: Hacer-coches- «$PAGINA», rama ${RAMA}, commit $COMMIT ($(date -u +%Y-%m-%d))" > "$DESTINO/ORIGEN.txt"
-echo "Hecho: $DESTINO/creador.html ($(du -h "$DESTINO/creador.html" | cut -f1), commit $COMMIT)"
+echo "Origen: Hacer coches «$PAGINA», $DE ($(date -u +%Y-%m-%d))" > "$DESTINO/ORIGEN.txt"
+echo "Hecho: $DESTINO/creador.html ($(du -h "$DESTINO/creador.html" | cut -f1)) · $DE"

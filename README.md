@@ -48,12 +48,14 @@ tools/actualizar-mundos.sh --rama claude/world-generator-viewer-kk0hn3   # clona
 El escenario se dibuja con `Escena3D` de Mundos- tal cual, así que se ve igual que en el visor.
 
 ## Los coches de Hacer coches
-Se usa el **creador realista**: `Parametric Car 3D Studio (2).html` de la rama `ccr-b02f9bfd-g5ar6l` (carrocería por
+Se usa el **creador realista**, el que está publicado en GitHub Pages
+(<https://narcimarquez-eng.github.io/Hacer-coches-/Parametric%20Car%203D%20Studio%20(2).html>, ahora el commit `59f12ce`
+de la rama `ccr-b02f9bfd-g5ar6l`): carrocería por
 secciones, piezas modeladas en Blender incrustadas en la página, ópticas recortadas con booleanas…). La página
 `parametric_car.html` de `main` es la versión antigua, de cajas, y ya no se usa.
 
 ```bash
-tools/actualizar-hacer-coches.sh                 # copia el creador de la rama ccr-b02f9bfd-g5ar6l (por defecto)
+tools/actualizar-hacer-coches.sh                 # copia el creador publicado en GitHub Pages (por defecto)
 tools/actualizar-hacer-coches.sh --rama main     # u otra rama, o una carpeta: tools/actualizar-hacer-coches.sh ../Hacer-coches-
 node tools/exportar-coches-fijos.cjs             # (con el juego servido en :8080) rehace coches/*.glb y sus fotos
 ```
@@ -137,7 +139,7 @@ encima del cauce, asfalto/grava/adoquín y la meta) y un choque contra el guarda
    (escenario «Valle de las Encinas»). Y en `setHora`, a las 18:30 ya es de noche.
 
 ## Qué falta en Hacer coches
-1. Llevar el creador realista a `main` (ahora está en la rama `ccr-b02f9bfd-g5ar6l`) o decir cuál es la buena.
+1. `main` sigue con el creador antiguo: la versión buena es la de Pages (rama `ccr-b02f9bfd-g5ar6l`).
 2. Guardar en `extras` del glTF los datos del coche (batalla, vía, radio, asiento del conductor, masa y potencia
    sugeridas) y que el aleatorio sortee también el dibujo de los neumáticos (ahora lo pone el puente del juego).
 3. Exportar el `.glb` es lento (unos 20 s en un ordenador sin tarjeta gráfica): se va en las texturas.
