@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#101418">
+  <title>Rallys</title>
+  <!-- Los módulos de Mundos- (vendor/mundos, copiados con tools/actualizar-mundos.sh) cargan sus recursos con rutas
+       relativas a la página ('assets/…', 'glb/…', 'js/…'): con esta base las encuentran sin tocarlos. Lo del juego
+       se referencia con ../../ (y en el código, con import.meta.url). -->
+  <base href="vendor/mundos/">
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+  <link rel="stylesheet" href="../../css/juego.css">
+</head>
+<body>
+  <div id="lienzo"></div>
+
+  <!-- Menú: escenario, coche y opciones -->
+  <section id="menu" class="panel-pantalla">
+    <div class="menu-caja">
+      <h1>🏁 Rallys</h1>
+      <p class="sub">Elige escenario y coche. Los escenarios se hacen en <a href="https://github.com/narcimarquez-eng/Mundos-" target="_blank" rel="noopener">Mundos-</a> y los coches en <a href="https://github.com/narcimarquez-eng/Hacer-coches-" target="_blank" rel="noopener">Hacer coches</a>.</p>
+      <h2>1 · Escenario</h2>
+      <div id="lista-escenarios" class="tarjetas"></div>
+      <div class="fila-botones">
+        <button id="btn-abrir-esc">📂 Abrir .escenario.json</button>
+        <button id="btn-url-esc">🔗 Desde una dirección web</button>
+      </div>
+      <h2>2 · Coche</h2>
+      <div id="lista-coches" class="tarjetas"></div>
+      <div class="fila-botones">
+        <button id="btn-abrir-coche">📂 Cargar un .glb</button>
+      </div>
+      <h2>3 · Carrera</h2>
+      <div class="opciones">
+        <label>Vueltas <select id="sel-vueltas"><option>1</option><option>2</option><option selected>3</option><option>5</option></select></label>
+        <label>Cámara <select id="sel-camara"><option value="persecucion">Persecución</option><option value="capo">Capó</option><option value="cabina">Cabina</option></select></label>
+        <label>Calidad <select id="sel-calidad"><option value="baja">Baja (móvil)</option><option value="media" selected>Media</option><option value="alta">Alta</option></select></label>
+        <label>Hora <select id="sel-hora"><option value="">La del escenario</option><option value="9">Mañana</option><option value="13">Mediodía</option><option value="17.5">Atardecer</option></select></label>
+      </div>
+      <p id="record-menu" class="record"></p>
+      <button id="btn-correr" class="primario grande">¡A correr!</button>
+      <details class="ayuda">
+        <summary>Controles</summary>
+        <p><b>Teclado:</b> W/↑ acelerar · S/↓ frenar y marcha atrás · A D/← → girar · Espacio freno de mano · C cámara · R volver a la pista · Esc pausa · M sonido</p>
+        <p><b>Mando:</b> RT acelerar · LT frenar · stick izquierdo girar · A/B freno de mano · Y cámara · X volver a la pista · Start pausa</p>
+        <p><b>Móvil:</b> ◀ ▶ para girar, pedales a la derecha (acelerar, frenar y freno de mano) y botones arriba.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- Carga -->
+  <section id="carga" class="panel-pantalla" hidden><div class="menu-caja centrado"><div class="rueda"></div><p id="carga-texto">Cargando…</p></div></section>
+
+  <!-- HUD -->
+  <div id="hud" hidden>
+    <div id="hud-tiempos">
+      <div class="t-total" id="h-total">0,000</div>
+      <div><span class="et">Vuelta</span> <b id="h-vuelta">1/3</b> <span id="h-tvuelta">0,000</span></div>
+      <div><span class="et">Mejor</span> <span id="h-mejor">–</span></div>
+      <div><span class="et">Control</span> <b id="h-control">1/5</b></div>
+    </div>
+    <canvas id="minimapa" width="180" height="180"></canvas>
+    <div id="mensaje"></div>
+    <div id="submensaje"></div>
+    <div id="hud-coche">
+      <div id="h-vel">0</div><div class="et">km/h</div>
+      <div id="h-marcha">1</div>
+      <div id="h-rpm"><i></i></div>
+    </div>
+    <div id="h-superficie"></div>
+    <div id="botones-hud">
+      <button data-accion="camara" title="Cámara (C)">🎥</button>
+      <button data-accion="reiniciar" title="Volver a la pista (R)">↺</button>
+      <button data-accion="pausa" title="Pausa (Esc)">⏸</button>
+    </div>
+  </div>
+
+  <!-- Controles táctiles -->
+  <div id="tactil" hidden>
+    <div class="t-izq"><button data-t="izq">◀</button><button data-t="der">▶</button></div>
+    <div class="t-der"><button data-t="mano" class="mano">⏹<small>mano</small></button><button data-t="freno" class="freno">▼<small>freno</small></button><button data-t="gas" class="gas">▲<small>gas</small></button></div>
+  </div>
+
+  <!-- Pausa -->
+  <section id="pausa" class="panel-pantalla" hidden>
+    <div class="menu-caja centrado">
+      <h2>⏸ Pausa</h2>
+      <button id="p-seguir" class="primario grande">Seguir</button>
+      <button id="p-reiniciar">↻ Empezar de nuevo</button>
+      <button id="p-menu">☰ Cambiar escenario o coche</button>
+      <label class="fila">Sonido <input type="checkbox" id="p-sonido" checked></label>
+      <label class="fila">Botones táctiles <input type="checkbox" id="p-tactil"></label>
+    </div>
+  </section>
+
+  <!-- Resultados -->
+  <section id="resultados" class="panel-pantalla" hidden>
+    <div class="menu-caja centrado">
+      <h2>🏁 ¡Meta!</h2>
+      <div id="r-total" class="t-grande"></div>
+      <div id="r-record"></div>
+      <ol id="r-vueltas"></ol>
+      <button id="r-repetir" class="primario grande">↻ Otra vez</button>
+      <button id="r-menu">☰ Menú</button>
+      <button id="r-libre">🚗 Seguir conduciendo</button>
+    </div>
+  </section>
+
+  <div id="avisos"></div>
+  <input type="file" id="fichero-esc" accept=".json,application/json" hidden>
+  <input type="file" id="fichero-coche" accept=".glb,model/gltf-binary" hidden>
+
+  <script src="js/escenario-core.js"></script>
+  <script src="js/pradera-atlas.js"></script>
+  <script src="js/texturas-lib.js"></script>
+  <script src="js/almacen.js"></script>
+  <script type="module" src="../../juego/main.js"></script>
+</body>
+</html>

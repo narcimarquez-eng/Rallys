@@ -1,0 +1,6 @@
+Copia de Mundos- (https://github.com/narcimarquez-eng/Mundos-) hecha con tools/actualizar-mundos.sh
+Fecha: 2026-11-25T23:48Z
+Commit: d97cc26f74ffd455b1cb4b9412d7f57e38fd5027
+Rama: claude/world-generator-viewer-kk0hn3
+Último cambio: Rocas con fotos de roca real y formas variadas
+No edites estos archivos aquí: los cambios se hacen en Mundos- y se vuelven a copiar.

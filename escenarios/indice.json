@@ -1,0 +1,6 @@
+[
+  { "id": "rally-4242", "nombre": "Circuito de Villarrally", "icono": "⛪", "plantilla": "rally", "semilla": 4242,
+    "desc": "Plantilla «rally» de Mundos- (semilla 4242), la del editor: grava, asfalto, barro, pueblo andaluz con su iglesia y un puente sobre el arroyo." },
+  { "id": "rally-123", "nombre": "Valle de las Encinas", "icono": "🌳", "archivo": "escenarios/valle-encinas.escenario.json",
+    "desc": "Otro circuito (semilla 123, al atardecer), con dos puentes y un vado, exportado desde Mundos- como .escenario.json." }
+]

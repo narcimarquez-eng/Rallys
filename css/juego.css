@@ -1,0 +1,105 @@
+:root {
+  --fondo: #101418; --panel: rgba(16, 20, 24, 0.92); --texto: #eef1f4; --suave: #9aa6b2; --acento: #ffb020; --acento2: #e8541e;
+  --verde: #3ccf6e; --rojo: #ff5a4f; --borde: rgba(255, 255, 255, 0.12);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--fondo); color: var(--texto); overflow: hidden; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+#lienzo { position: fixed; inset: 0; }
+#lienzo canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+button, select { font: inherit; color: inherit; }
+button { background: #26303a; border: 1px solid var(--borde); border-radius: 10px; padding: 9px 14px; cursor: pointer; touch-action: manipulation; }
+button:hover { background: #303c48; }
+button.primario { background: linear-gradient(180deg, var(--acento), var(--acento2)); border: 0; color: #1a1006; font-weight: 700; }
+button.grande { font-size: 1.15rem; padding: 13px 22px; }
+select { background: #1c242c; border: 1px solid var(--borde); border-radius: 8px; padding: 6px 8px; }
+a { color: var(--acento); }
+
+/* Pantallas (menú, carga, pausa, resultados) */
+.panel-pantalla { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; background: radial-gradient(ellipse at top, rgba(40, 52, 64, 0.85), rgba(8, 10, 12, 0.94)); padding: max(16px, env(safe-area-inset-top)) 16px 24px; }
+.panel-pantalla[hidden] { display: none; }
+#pausa, #resultados { background: rgba(6, 8, 10, 0.55); align-items: center; }
+.menu-caja { width: 100%; max-width: 920px; }
+.menu-caja.centrado { max-width: 380px; background: var(--panel); border: 1px solid var(--borde); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
+h1 { font-size: 2.2rem; margin: 8px 0 2px; letter-spacing: 0.02em; }
+h2 { font-size: 1.05rem; margin: 18px 0 8px; color: var(--acento); text-transform: uppercase; letter-spacing: 0.06em; }
+.centrado h2 { margin-top: 0; }
+.sub { color: var(--suave); margin: 0 0 6px; }
+.tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.tarjeta { background: #1a2129; border: 2px solid transparent; border-radius: 12px; padding: 10px 12px; cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 3px; min-height: 64px; }
+.tarjeta:hover { background: #212a34; }
+.tarjeta.elegida { border-color: var(--acento); background: #2a2418; }
+.tarjeta b { font-size: 0.98rem; }
+.tarjeta small { color: var(--suave); line-height: 1.3; }
+.tarjeta .icono { font-size: 1.4rem; }
+.fila-botones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.opciones { display: flex; flex-wrap: wrap; gap: 10px 18px; }
+.opciones label { display: flex; gap: 8px; align-items: center; }
+.record { color: var(--suave); min-height: 1.2em; }
+#btn-correr { margin-top: 6px; width: 100%; max-width: 360px; }
+.ayuda { margin-top: 14px; color: var(--suave); font-size: 0.9rem; }
+.ayuda summary { cursor: pointer; color: var(--texto); }
+label.fila { display: flex; justify-content: space-between; align-items: center; padding: 4px 2px; }
+.rueda { width: 46px; height: 46px; margin: 8px auto; border: 4px solid var(--borde); border-top-color: var(--acento); border-radius: 50%; animation: girar 0.9s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+.t-grande { font-size: 2.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+#r-vueltas { text-align: left; margin: 0 auto; padding-left: 1.4em; font-variant-numeric: tabular-nums; }
+#r-vueltas li.mejor { color: var(--verde); font-weight: 700; }
+#r-record { min-height: 1.2em; }
+
+/* HUD */
+#hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+#hud[hidden] { display: none; }
+#hud-tiempos { position: absolute; left: max(12px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); background: rgba(0, 0, 0, 0.38); border-radius: 12px; padding: 8px 12px; line-height: 1.45; font-size: 0.95rem; }
+#hud-tiempos .t-total { font-size: 1.7rem; font-weight: 800; }
+.et { color: var(--suave); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.05em; }
+#minimapa { position: absolute; right: max(12px, env(safe-area-inset-right)); top: max(10px, env(safe-area-inset-top)); width: 180px; height: 180px; border-radius: 50%; background: rgba(0, 0, 0, 0.35); border: 2px solid rgba(255, 255, 255, 0.25); }
+#mensaje { position: absolute; left: 0; right: 0; top: 24%; text-align: center; font-size: 3.4rem; font-weight: 900; letter-spacing: 0.02em; transition: opacity 0.3s; }
+#submensaje { position: absolute; left: 0; right: 0; top: calc(24% + 4rem); text-align: center; font-size: 1.4rem; font-weight: 700; transition: opacity 0.3s; }
+.mejor-t { color: var(--verde); } .peor-t { color: var(--rojo); }
+#hud-coche { position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); text-align: right; background: rgba(0, 0, 0, 0.38); border-radius: 14px; padding: 8px 14px 10px; min-width: 130px; }
+#h-vel { font-size: 2.6rem; font-weight: 900; line-height: 1; }
+#h-marcha { position: absolute; left: 12px; top: 8px; font-size: 1.5rem; font-weight: 800; color: var(--acento); }
+#h-rpm { margin-top: 6px; height: 6px; background: rgba(255, 255, 255, 0.15); border-radius: 3px; overflow: hidden; }
+#h-rpm i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--verde), var(--acento) 70%, var(--rojo)); }
+#h-superficie { position: absolute; left: max(12px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); background: rgba(0, 0, 0, 0.38); border-radius: 10px; padding: 6px 10px; font-size: 0.9rem; }
+#botones-hud { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 8px; pointer-events: auto; }
+#botones-hud button { background: rgba(0, 0, 0, 0.4); width: 46px; height: 42px; padding: 0; font-size: 1.2rem; }
+
+/* Táctil */
+#tactil { position: fixed; inset: auto 0 0 0; z-index: 12; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); pointer-events: none; }
+#tactil[hidden] { display: none; }
+#tactil button { pointer-events: auto; touch-action: none; background: rgba(20, 24, 28, 0.42); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 18px; font-size: 1.7rem; width: 84px; height: 84px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+#tactil button small { font-size: 0.6rem; opacity: 0.8; margin-top: 2px; }
+#tactil button.pulsado { background: rgba(255, 176, 32, 0.55); }
+#tactil .t-izq, #tactil .t-der { display: flex; gap: 10px; align-items: flex-end; }
+#tactil .gas { height: 128px; width: 92px; }
+#tactil .freno { height: 100px; }
+#tactil .mano { width: 66px; height: 66px; font-size: 1.2rem; }
+body.tactil #hud-coche { bottom: 150px; }
+body.tactil #h-superficie { bottom: 112px; }
+
+#avisos { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 30; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
+#avisos div { background: rgba(0, 0, 0, 0.75); padding: 8px 14px; border-radius: 10px; max-width: 90vw; font-size: 0.9rem; }
+
+@media (max-width: 640px) {
+  h1 { font-size: 1.7rem; }
+  #minimapa { width: 118px; height: 118px; }
+  #hud-tiempos { font-size: 0.82rem; padding: 6px 9px; }
+  #hud-tiempos .t-total { font-size: 1.3rem; }
+  #mensaje { font-size: 2.5rem; }
+  #submensaje { font-size: 1.1rem; top: calc(24% + 3rem); }
+  #h-vel { font-size: 2rem; }
+  #botones-hud { top: auto; bottom: max(230px, calc(env(safe-area-inset-bottom) + 230px)); left: auto; right: 10px; transform: none; flex-direction: column; }
+  body:not(.tactil) #botones-hud { bottom: 120px; }
+  #tactil button { width: 72px; height: 72px; }
+  #tactil .gas { width: 80px; height: 112px; }
+  .tarjetas { grid-template-columns: 1fr 1fr; }
+}
+@media (max-height: 480px) and (orientation: landscape) {
+  #botones-hud { top: max(8px, env(safe-area-inset-top)); bottom: auto; left: 50%; right: auto; transform: translateX(-50%); flex-direction: row; }
+  #mensaje { top: 18%; font-size: 2.2rem; }
+  #submensaje { top: calc(18% + 2.8rem); }
+  body.tactil #hud-coche { bottom: 12px; right: 50%; transform: translateX(50%); }
+  body.tactil #h-superficie { display: none; }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "rallys",
+  "private": true,
+  "description": "Juego de rallys con los escenarios de Mundos- y los coches de Hacer coches",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "servir": "npx serve -l 8080 .",
+    "actualizar-mundos": "bash tools/actualizar-mundos.sh"
+  }
+}

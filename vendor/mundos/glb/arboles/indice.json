@@ -1,0 +1,63 @@
+[
+ {
+  "id": "liquidambar",
+  "tris": {
+   "cerca": 9232,
+   "medio": 3075
+  },
+  "tarjetas": {
+   "piezas": 1032,
+   "quedan": 386
+  },
+  "alto": 17.68,
+  "ancho": 13.19,
+  "kb": 684,
+  "kbOriginal": 1874
+ },
+ {
+  "id": "palmera_datilera",
+  "tris": {
+   "cerca": 3768,
+   "medio": 1381
+  },
+  "tarjetas": {
+   "piezas": 65,
+   "quedan": 24,
+   "simplificada": true
+  },
+  "alto": 13.58,
+  "ancho": 11,
+  "kb": 629,
+  "kbOriginal": 1870
+ },
+ {
+  "id": "pino_pinonero",
+  "tris": {
+   "cerca": 16508,
+   "medio": 5647
+  },
+  "tarjetas": {
+   "piezas": 1827,
+   "quedan": 722
+  },
+  "alto": 13.68,
+  "ancho": 17.07,
+  "kb": 1254,
+  "kbOriginal": 3249
+ },
+ {
+  "id": "pinsapo",
+  "tris": {
+   "cerca": 19216,
+   "medio": 9655
+  },
+  "tarjetas": {
+   "piezas": 3164,
+   "quedan": 1922
+  },
+  "alto": 19.19,
+  "ancho": 11.39,
+  "kb": 1166,
+  "kbOriginal": 3620
+ }
+]

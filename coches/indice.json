@@ -1,0 +1,12 @@
+[
+  { "id": "urban", "nombre": "Urban Speedster", "icono": "🚙", "archivo": "coches/urban.glb", "desc": "Compacto ligero y ágil: el más fácil de llevar.",
+    "datos": { "masa": 1150, "potencia": 200, "reparto": 0.45 } },
+  { "id": "offroad", "nombre": "Baja 4x4", "icono": "🛻", "archivo": "coches/offroad.glb", "desc": "Todoterreno alto: suspensión larga, ideal para tierra y vados.",
+    "datos": { "masa": 1550, "potencia": 245, "reparto": 0.5, "recorrido": 0.24, "tope": 0.16, "alturaCdg": 0.68, "amortiguacion": 0.34 } },
+  { "id": "supercar", "nombre": "Cyber Wedge", "icono": "🏎", "archivo": "coches/supercar.glb", "desc": "Cupé en cuña muy potente y bajo: rápido en asfalto, nervioso en grava.",
+    "datos": { "masa": 1300, "potencia": 310, "reparto": 0.35, "recorrido": 0.13, "alturaCdg": 0.42 } },
+  { "id": "gt", "nombre": "Gran Turismo Royale", "icono": "🚘", "archivo": "coches/gt.glb", "desc": "Cupé clásico, pesado y estable.",
+    "datos": { "masa": 1450, "potencia": 270, "reparto": 0.4 } },
+  { "id": "phantom", "nombre": "Phantom V8", "icono": "🚖", "archivo": "coches/phantom.glb", "desc": "Berlina larga de lujo: mucho motor y mucha inercia.",
+    "datos": { "masa": 1700, "potencia": 290, "reparto": 0.4, "amortiguacion": 0.32 } }
+]
