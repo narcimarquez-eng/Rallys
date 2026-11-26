@@ -48,7 +48,9 @@ test('clasificación local: solo se guarda tu mejor vuelta de cada circuito y ve
 });
 
 test('clasificación online contra un Supabase simulado: subir, ver el puesto y bajar el fantasma', async () => {
-  assert.equal(C.configOnline(), null, 'sin configurar no hay online');
+  // la configuración del juego (juego/online.config.js), si la hay, es de Supabase; aquí se prueba con la simulada
+  const cfg = C.configOnline();
+  assert.ok(cfg === null || /^https:\/\/[a-z0-9]+\.supabase\.co$/.test(cfg.url), 'configuración online con formato válido');
   const filas = [];
   let id = 1;
   globalThis.fetch = async (url, op) => {

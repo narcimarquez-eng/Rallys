@@ -15,6 +15,8 @@ import { Controles } from './controles.js';
 import { Sonido } from './sonido.js';
 import { Particulas } from './particulas.js';
 import { generarCoche, abrirCreador, fotoCoche, semillaNueva, barras } from './generador-coche.js';
+import { Sala, codigoNuevo, normalizarCodigo, idNuevo } from './sala.js';
+import { Rival, ESTADO, FASE, COLORES, ordenar } from './rivales.js';
 
 const E = window.Escenario, A = window.Almacen;
 const $ = id => document.getElementById(id);
@@ -167,7 +169,10 @@ function pintarMenu() {
     const b = document.createElement('button'); b.className = 'tarjeta' + (elegidoEsc && elegidoEsc.id === s.id ? ' elegida' : '');
     const r = recs[s.id] && recs[s.id].vuelta;
     b.innerHTML = `<span class="icono">${s.icono || '🏞'}</span><b>${esc_(s.nombre)}</b><small>${esc_(s.desc || '')}</small>${r ? `<small>🏆 Mejor vuelta ${fmt(r.t)}</small>` : ''}`;
-    b.onclick = () => { elegidoEsc = s; prefs.escenario = s.id; guardarPrefs(); pintarMenu(); };
+    b.onclick = () => {
+      if (sala && !sala.soyAnfitrion) { aviso('En la sala, el circuito lo elige el anfitrión'); return; }
+      elegidoEsc = s; prefs.escenario = s.id; guardarPrefs(); pintarMenu();
+    };
     le.appendChild(b);
   }
   const lc = $('lista-coches'); lc.innerHTML = '';
@@ -179,13 +184,18 @@ function pintarMenu() {
   }
   pintarFicha();
   pintarClasif();
+  sincronizarYo();
+  pintarGrupo();
   const r = elegidoEsc && recs[elegidoEsc.id];
   $('record-menu').textContent = r ? `🏆 ${elegidoEsc.nombre}: mejor vuelta ${r.vuelta ? fmt(r.vuelta.t) : '–'}${r['total' + prefs.vueltas] ? ' · mejor carrera a ' + prefs.vueltas + ' vueltas ' + fmt(r['total' + prefs.vueltas].t) : ''}` : '';
 }
 function esc_(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 $('sel-vueltas').value = String(prefs.vueltas); $('sel-camara').value = prefs.camara; $('sel-calidad').value = prefs.calidad; $('sel-hora').value = prefs.hora;
-$('sel-vueltas').onchange = e => { prefs.vueltas = +e.target.value; guardarPrefs(); pintarMenu(); };
+$('sel-vueltas').onchange = e => {
+  if (sala && !sala.soyAnfitrion) { e.target.value = String(prefs.vueltas); aviso('En la sala, las vueltas las elige el anfitrión'); return; }
+  prefs.vueltas = +e.target.value; guardarPrefs(); pintarMenu();
+};
 $('sel-camara').onchange = e => { prefs.camara = e.target.value; guardarPrefs(); };
 $('sel-calidad').onchange = e => { prefs.calidad = e.target.value; guardarPrefs(); };
 $('sel-hora').onchange = e => { prefs.hora = e.target.value; guardarPrefs(); };
@@ -236,8 +246,9 @@ async function cargarEscenario(s) {
 
 function textoCarga(t) { $('carga-texto').textContent = t; }
 
-async function empezarPartida() {
+async function empezarPartida(enGrupo) {
   if (!elegidoEsc || !elegidoCoche) { aviso('Elige un escenario y un coche'); return; }
+  modoGrupo = !!enGrupo; quitarRivales();
   estado = 'carga';
   $('menu').hidden = true; $('carga').hidden = false; $('resultados').hidden = true; $('pausa').hidden = true;
   try {
@@ -253,12 +264,20 @@ async function empezarPartida() {
     await prepararCoche();
     versionEsc = versionEscenario(E, esc);
     if (prefs.versiones[fuenteEsc.id] !== versionEsc) { prefs.versiones[fuenteEsc.id] = versionEsc; guardarPrefs(); }
-    try { await prepararFantasma(); } catch (e) { console.warn(e); quitarFantasma(); aviso('No se pudo cargar el fantasma: ' + e.message, 5000); }
+    if (modoGrupo) {
+      quitarFantasma();
+      sincronizarRivales();
+      textoCarga('Preparando los coches de los demás pilotos…');
+      await Promise.race([colaModelos, new Promise(r => setTimeout(r, 45000))]);
+    } else {
+      try { await prepararFantasma(); } catch (e) { console.warn(e); quitarFantasma(); aviso('No se pudo cargar el fantasma: ' + e.message, 5000); }
+    }
     textoCarga('¡Listos!');
     nuevaCarrera();
   } catch (e) {
     console.error(e);
-    estado = 'menu'; $('carga').hidden = true; $('menu').hidden = false;
+    if (modoGrupo) { modoGrupo = false; if (sala) sala.publicar({ fase: 'menu' }); }
+    estado = 'menu'; $('carga').hidden = true; $('menu').hidden = false; pintarMenu();
     aviso('No se pudo empezar: ' + e.message, 7000);
   }
 }
@@ -303,19 +322,22 @@ async function modeloDe(c) {
   }
   return cargarCoche(fuente, { girar180: c.girar180 });
 }
-async function prepararCoche() {
-  if (modelo && datosCoche === elegidoCoche && coche && coche.pista === pista) return;
-  if (modelo) scene.remove(modelo.objeto);
-  const c = elegidoCoche;
-  modelo = await modeloDe(c);
-  // Reflejos para la pintura y el cromo: la escena no tiene mapa de entorno y, sin él, un metalizado sale casi negro
+// Reflejos para la pintura y el cromo: la escena no tiene mapa de entorno y, sin él, un metalizado sale casi negro
+function ponerReflejos(objeto) {
   if (!entornoCoche) entornoCoche = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-  modelo.objeto.traverse(o => {
+  objeto.traverse(o => {
     if (!o.isMesh) return;
     for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
       if (m && m.isMeshStandardMaterial && !m.envMap) { m.envMap = entornoCoche; m.envMapIntensity = (m.envMapIntensity || 1) * 0.75; m.needsUpdate = true; }
     }
   });
+}
+async function prepararCoche() {
+  if (modelo && datosCoche === elegidoCoche && coche && coche.pista === pista) return;
+  if (modelo) scene.remove(modelo.objeto);
+  const c = elegidoCoche;
+  modelo = await modeloDe(c);
+  ponerReflejos(modelo.objeto);
   datosCoche = c;
   scene.add(modelo.objeto);
   coche = new Coche(pista, modelo.medidas, c.datos);
@@ -332,7 +354,7 @@ function puntoSalida() {
 }
 
 function nuevaCarrera() {
-  const s = puntoSalida();
+  const s = modoGrupo ? puestoParrilla() : puntoSalida();
   coche.reiniciar(s.x, s.z, s.rumbo);
   crono = new Cronometro(esc, pista, prefs.vueltas, fuenteEsc.id);
   crono.coche = datosCoche.nombre;
@@ -346,6 +368,15 @@ function nuevaCarrera() {
   $('carga').hidden = true; $('hud').hidden = false; $('resultados').hidden = true; $('pausa').hidden = true;
   ponerTactil();
   mensaje('', ''); ultimoPitido = 4;
+  if (modoGrupo) {
+    const a = sala && sala.anfitrion;
+    if (a && a.carrera === grupo.carrera && (a.fase === 'carrera' || a.fase === 'fin')) grupo.salida = grupo.carrera; // ya han salido
+    if (grupo.salida !== grupo.carrera) { estado = 'espera'; mensaje('', 'Esperando a los demás pilotos…'); }
+    try { camaras.actualizar(1 / 60, coche, modelo); renderer.compile(scene, camara); } catch (e) { console.warn(e); }
+    if (sala) sala.publicar({ fase: estado === 'espera' ? 'listo' : 'carrera', carrera: grupo.carrera, total: null, mejor: null });
+    comprobarSalida();
+  }
+  ponerModoGrupo();
   actualizarHUD(true);
 }
 
@@ -367,7 +398,7 @@ function volverAPista() {
 // ---------------------------------------------------------------------------
 function pausar(v) {
   if (estado === 'menu' || estado === 'carga') return;
-  pausado = v; $('pausa').hidden = !v; sonido.pausar(v);
+  pausado = v; $('pausa').hidden = !v; if (!modoGrupo) sonido.pausar(v);
 }
 $('p-seguir').onclick = () => pausar(false);
 // Otra carrera en el mismo circuito: con el fantasma al día (tu nueva mejor vuelta, si la hay)
@@ -384,6 +415,8 @@ $('r-repetir').onclick = () => otraCarrera();
 $('r-menu').onclick = () => irAlMenu();
 $('r-libre').onclick = () => { $('resultados').hidden = true; estado = 'libre'; };
 function irAlMenu() {
+  if (modoGrupo) { modoGrupo = false; quitarRivales(); if (sala) sala.publicar({ fase: 'menu' }); }
+  ponerModoGrupo();
   pausado = false; sonido.pausar(true);
   estado = 'menu'; $('pausa').hidden = true; $('resultados').hidden = true; $('hud').hidden = true; $('tactil').hidden = true; $('menu').hidden = false;
   pintarMenu();
@@ -396,6 +429,7 @@ function mostrarResultados() {
   const mejor = Math.min(...crono.tiemposVuelta);
   crono.tiemposVuelta.forEach(t => { const li = document.createElement('li'); li.textContent = fmt(t); if (t === mejor && crono.tiemposVuelta.length > 1) li.className = 'mejor'; ol.appendChild(li); });
   pintarSubida();
+  pintarResultadosGrupo();
   $('resultados').hidden = false;
 }
 
@@ -446,7 +480,10 @@ async function registrarVuelta(v, ev) {
   try {
     const id = await subirVuelta(reg);
     const lista = await clasificacion(reg.escenario, reg.version, 200);
-    const puesto = lista ? lista.findIndex(f => f.id === id || (f.piloto.trim().toLowerCase() === reg.piloto.trim().toLowerCase() && Math.abs(f.tiempo - reg.tiempo) < 0.002)) + 1 : 0;
+    // tu puesto (si ya tenías una vuelta mejor subida desde otro sitio, el de esa: la clasificación es una por piloto)
+    const mismo = f => f.piloto.trim().toLowerCase() === reg.piloto.trim().toLowerCase();
+    let puesto = lista ? lista.findIndex(f => f.id === id || (mismo(f) && Math.abs(f.tiempo - reg.tiempo) < 0.002)) + 1 : 0;
+    if (!puesto && lista) puesto = lista.findIndex(mismo) + 1;
     subida = { estado: 'subida', tiempo: reg.tiempo, puesto, de: lista ? lista.length : 0 };
     cacheClasif.delete(reg.escenario);
   } catch (e) { console.warn(e); subida = { estado: 'error', tiempo: reg.tiempo, error: e.message }; }
@@ -528,6 +565,7 @@ function actualizarHUD(forzar) {
   $('h-rpm').firstChild.style.width = Math.round((coche.rpm - coche.p.rpmRalenti) / (coche.p.rpmCorte - coche.p.rpmRalenti) * 100) + '%';
   const sup = supActual();
   $('h-superficie').textContent = (SUPERFICIES[sup] || {}).nombre || sup;
+  if (modoGrupo) pintarPuestos();
 }
 function supActual() {
   const cnt = {}; for (const w of coche.ruedas) cnt[w.sup] = (cnt[w.sup] || 0) + 1;
@@ -575,6 +613,13 @@ function dibujarMinimapa(dt) {
     if (sig) { g.fillStyle = '#000'; g.font = 'bold 8px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(i + 1), px, pz + 0.5); }
   });
   if (crono.meta) { const [px, pz] = P(crono.meta.x, crono.meta.z); g.fillStyle = crono.siguiente >= crono.total ? '#ffb020' : '#fff'; g.fillRect(px - 4, pz - 4, 8, 8); g.fillStyle = '#000'; g.fillRect(px - 4, pz - 4, 4, 4); g.fillRect(px, pz, 4, 4); }
+  // los demás pilotos de la sala
+  for (const r of grupo.rivales.values()) {
+    if (!r.modelo.objeto.visible) continue;
+    const [px, pz] = P(r.coche.x, r.coche.z);
+    g.fillStyle = r.color; g.strokeStyle = '#000'; g.lineWidth = 1.2;
+    g.beginPath(); g.arc(px, pz, 4.5, 0, 7); g.fill(); g.stroke();
+  }
   // coche
   const [cx, cz] = P(coche.x, coche.z);
   g.translate(cx, cz); g.rotate(-coche.rumbo + Math.PI);
@@ -603,12 +648,13 @@ function bucle(ahora) {
   const mandoLeido = autopiloto ? pilotoAuto() : controles.leer(dt);
   for (const a of controles.sacarAcciones()) {
     if (a === 'pausa') pausar(!pausado);
+    else if (a === 'pantalla') pantallaCompleta();
     else if (pausado) continue;
     else if (a === 'camara') { const c = camaras.siguiente(); prefs.camara = c.id; guardarPrefs(); aviso('🎥 ' + c.nombre, 1200); }
-    else if (a === 'reiniciar' && estado !== 'cuenta') volverAPista();
+    else if (a === 'reiniciar' && estado !== 'cuenta' && estado !== 'espera') volverAPista();
     else if (a === 'sonido') { prefs.sonido = !prefs.sonido; sonido.setActivo(prefs.sonido); $('p-sonido').checked = prefs.sonido; aviso(prefs.sonido ? '🔊 Sonido' : '🔇 Sin sonido', 1000); }
   }
-  if (pausado) { renderer.render(scene, camara); return; }
+  if (pausado && !modoGrupo) { renderer.render(scene, camara); return; }
 
   // Cuenta atrás
   if (estado === 'cuenta') {
@@ -618,7 +664,8 @@ function bucle(ahora) {
     if (tCuenta <= 0) { estado = 'carrera'; crono.empezar(); mensaje('¡YA!', '', 1); sonido.pitido(880, 0.45); }
   }
   // Física a paso fijo
-  const mando = estado === 'cuenta' ? Object.assign({}, mandoParado, { gas: mandoLeido.gas }) : estado === 'fin' ? { gas: 0, freno: 0.4, giro: 0, manoFreno: false } : mandoLeido;
+  const mando = estado === 'cuenta' || estado === 'espera' ? Object.assign({}, mandoParado, { gas: mandoLeido.gas })
+    : estado === 'fin' || pausado ? { gas: 0, freno: 0.4, giro: 0, manoFreno: false } : mandoLeido;
   acumulado += dt;
   let pasos = 0;
   while (acumulado >= PASO && pasos < 8) {
@@ -626,6 +673,7 @@ function bucle(ahora) {
     coche.paso(PASO, mando, obstaculos);
     if (estado === 'carrera') crono.actualizar(PASO, px, pz, coche.x, coche.z);
     for (const ev of crono.eventos) evento(ev);
+    crono.eventos.length = 0; // cada evento, una vez (tras la meta el cronómetro ya no los borra)
     if (estado === 'carrera') grabadora.paso(crono.t - crono.tVuelta0, coche);
     for (const im of coche.impactos) impacto(im);
     acumulado -= PASO; pasos++;
@@ -634,6 +682,7 @@ function bucle(ahora) {
   if (coche.ahogado > 2.5) volverAPista();
 
   colocarCoche(modelo, coche);
+  if (modoGrupo) { enviarEstadoGrupo(dt); const ahoraS = performance.now() / 1000; for (const r of grupo.rivales.values()) r.actualizar(ahoraS); }
   if (fantasma) fantasma.actualizar(estado === 'cuenta' ? 0 : estado === 'carrera' ? crono.t - crono.tVuelta0 : -1);
   camaras.actualizar(dt, coche, modelo);
   escena.actualizar(dt, camara);
@@ -670,6 +719,7 @@ function avanzar(seg) {
     coche.paso(PASO, estado === 'fin' ? { gas: 0, freno: 0.4, giro: 0, manoFreno: false } : pilotoAuto(), obstaculos);
     if (estado === 'carrera') crono.actualizar(PASO, px, pz, coche.x, coche.z);
     for (const ev of crono.eventos) evento(ev);
+    crono.eventos.length = 0; // cada evento, una vez (tras la meta el cronómetro ya no los borra)
     if (estado === 'carrera') grabadora.paso(crono.t - crono.tVuelta0, coche);
     if (k % 120 === 0) obstaculos.actualizarPueblos(escena);
   }
@@ -691,6 +741,7 @@ function evento(ev) {
   } else if (ev.tipo === 'fin') {
     crono.eventosFin = ev;
     estado = 'fin';
+    if (modoGrupo && sala) sala.publicar({ fase: 'fin', total: +ev.t.toFixed(3), mejor: +Math.min(...crono.tiemposVuelta).toFixed(3) });
     mensaje('¡META!', fmt(ev.t) + (ev.record ? ' <span class="mejor-t">🏆 ¡récord!</span>' : ''), 3);
     sonido.pitido(660, 0.6);
     setTimeout(() => { if (estado === 'fin') mostrarResultados(); }, 2200);
@@ -728,6 +779,336 @@ function emitirParticulas(dt) {
 }
 
 // ---------------------------------------------------------------------------
+// Carreras en grupo por internet (juego/sala.js, juego/rivales.js, docs/GRUPO.md)
+// ---------------------------------------------------------------------------
+let sala = null;        // la sala en la que estás (o null)
+let modoGrupo = false;  // la carrera de ahora es la de la sala
+const grupo = {
+  carrera: null,        // id de la carrera de la sala que se está corriendo
+  salida: null,         // id de la carrera a la que ya se ha dado la salida
+  tCargar: 0,           // cuándo mandó cargar el anfitrión (para no esperar eternamente a alguien)
+  esperados: new Set(), // quiénes estaban en la sala entonces (el anfitrión los espera en la salida)
+  rivales: new Map(),   // id → Rival (su coche en la escena)
+  cargando: new Set(),  // ids cuyo coche se está preparando
+  ultimos: new Map(),   // id → último estado recibido (para el puesto, aunque su coche aún no esté)
+  nombres: new Map(),   // id → nombre (para avisar cuando alguien se va)
+  t0: performance.now(),
+  uniendo: false, error: null, codigoPedido: ''
+};
+let colaModelos = Promise.resolve();
+const porLlegada = (a, b) => (a.desde - b.desde) || (a.id < b.id ? -1 : 1);
+
+function infoCoche(c) { return c ? { id: c.id, nombre: c.nombre, semilla: c.semilla || null } : null; }
+function infoEsc(s) {
+  if (!s) return null;
+  const o = { id: s.id, nombre: s.nombre, icono: s.icono || '' };
+  for (const k of ['plantilla', 'semilla', 'archivo', 'url', 'desc']) if (s[k] != null) o[k] = s[k];
+  return o;
+}
+// ¿Pueden cargar los demás este circuito? (los de la lista y los de una dirección web; un archivo tuyo, no)
+const compartible = s => !!(s && (s.plantilla || s.archivo || s.url));
+// El coche de otro jugador: uno de la lista, el generado de su semilla o, si no se puede (un .glb suyo), uno fijo
+function cocheDe(info) {
+  if (info && info.semilla) return entradaGenerado(info.semilla);
+  return (info && indiceCoches.find(c => c.id === info.id && (c.archivo || c.bytes == null) && !c.semilla)) || indiceCoches.find(c => c.archivo) || elegidoCoche;
+}
+function colorDe(id) {
+  const ids = sala ? [...sala.pilotos.values()].sort(porLlegada).map(p => p.id) : [];
+  return COLORES[Math.max(0, ids.indexOf(id)) % COLORES.length];
+}
+
+// Lo que publicas en la sala: nombre, coche y lo elegido en el menú (que vale si eres el anfitrión)
+function sincronizarYo() {
+  if (!sala) return;
+  const c = { nombre: prefs.piloto || 'Piloto', coche: infoCoche(elegidoCoche), conf: { esc: infoEsc(elegidoEsc), vueltas: prefs.vueltas } };
+  if (JSON.stringify(c) !== JSON.stringify({ nombre: sala.yo.nombre, coche: sala.yo.coche, conf: sala.yo.conf })) sala.publicar(c);
+}
+// Si no eres el anfitrión: su circuito y sus vueltas. → ¿ha cambiado algo?
+function aplicarConf(conf) {
+  if (!conf || !conf.esc) return false;
+  let cambio = false;
+  if (!elegidoEsc || elegidoEsc.id !== conf.esc.id) {
+    let s = indiceEsc.find(x => x.id === conf.esc.id);
+    if (!s && compartible(conf.esc)) { s = Object.assign({}, conf.esc); indiceEsc.push(s); }
+    if (s) { elegidoEsc = s; cambio = true; }
+  }
+  const v = +conf.vueltas;
+  if (v >= 1 && v <= 20 && v !== prefs.vueltas) { prefs.vueltas = v; $('sel-vueltas').value = String(v); cambio = true; }
+  return cambio;
+}
+function seguirAnfitrion() { return !!sala && !sala.soyAnfitrion && aplicarConf((sala.anfitrion || {}).conf); }
+
+async function entrarSala(codigo) {
+  const cfg = configOnline();
+  if (!cfg) { aviso('Las carreras en grupo necesitan la clasificación online configurada (docs/ONLINE.md)'); return; }
+  codigo = normalizarCodigo(codigo);
+  if (codigo.length < 3) { aviso('Escribe el código de la sala (4 letras)'); return; }
+  if (!prefs.piloto) { aviso('Pon antes tu nombre de piloto (arriba, en la clasificación)'); const n = $('nombre-piloto'); if (n) n.focus(); return; }
+  if (sala) await salirSala(true);
+  grupo.uniendo = true; grupo.error = null; grupo.codigoPedido = codigo; pintarGrupo();
+  const s = new Sala(cfg, { id: idNuevo(), nombre: prefs.piloto, coche: infoCoche(elegidoCoche), conf: { esc: infoEsc(elegidoEsc), vueltas: prefs.vueltas }, fase: 'menu', carrera: null },
+    { directa: params.get('p2p') !== '0', depurar: params.has('depurar') });
+  s.on('pilotos', alCambiarPilotos).on('mensaje', alMensaje).on('red', () => pintarGrupo())
+    .on('estado', (id, v) => { grupo.ultimos.set(id, v); const r = grupo.rivales.get(id); if (r) r.recibir(v, performance.now() / 1000); })
+    .on('sale', id => { const n = grupo.nombres.get(id); if (n) aviso('👋 ' + n + ' ha salido de la sala', 3000); grupo.ultimos.delete(id); });
+  sala = s;
+  try {
+    await s.entrar(codigo);
+    grupo.t0 = performance.now();
+    const u = new URL(location.href); u.searchParams.set('sala', s.codigo); history.replaceState(null, '', u);
+    aviso('👥 Estás en la sala ' + s.codigo, 2500);
+  } catch (e) {
+    console.warn(e); grupo.error = e.message; sala = null; s.salir();
+  } finally { grupo.uniendo = false; pintarMenu(); }
+}
+async function salirSala(sinPintar) {
+  const s = sala; if (!s) return;
+  if (modoGrupo) irAlMenu();
+  sala = null; quitarRivales(); grupo.carrera = null; grupo.salida = null; grupo.ultimos.clear();
+  const u = new URL(location.href); u.searchParams.delete('sala'); history.replaceState(null, '', u);
+  await s.salir();
+  if (!sinPintar) pintarMenu();
+}
+addEventListener('pagehide', () => { if (sala) sala.salir(); });
+
+function alCambiarPilotos(pilotos) {
+  for (const p of pilotos.values()) grupo.nombres.set(p.id, p.nombre);
+  if (estado === 'menu') { if (seguirAnfitrion()) pintarMenu(); else pintarGrupo(); }
+  if (modoGrupo) {
+    sincronizarRivales();
+    // ¿salieron ya sin que te llegara la orden? (si llegaste tarde a la sala)
+    const a = sala.anfitrion;
+    if (estado === 'espera' && a && a.carrera === grupo.carrera && (a.fase === 'carrera' || a.fase === 'fin')) darSalida();
+    comprobarSalida();
+    if (!$('resultados').hidden) pintarResultadosGrupo();
+  }
+}
+function alMensaje(tipo, d, de) {
+  const a = sala && sala.anfitrion;
+  if (!a || de !== a.id) return; // las órdenes, solo del anfitrión
+  if (tipo === 'cargar') carreraGrupo(d);
+  else if (tipo === 'salida' && d && d.carrera === grupo.carrera) darSalida();
+}
+
+// El anfitrión pulsa «Empezar»: todos cargan el circuito; cuando estén en la salida (o a los 90 s), cuenta atrás
+function empezarGrupo() {
+  if (!sala || !sala.soyAnfitrion) return;
+  if (!compartible(elegidoEsc)) { aviso('Ese circuito es un archivo de tu ordenador y los demás no lo tienen: elige uno de la lista'); return; }
+  const corriendo = [...sala.pilotos.values()].filter(p => p.id !== sala.yo.id && p.carrera && ['cargando', 'listo', 'carrera'].includes(p.fase));
+  if (corriendo.length && !confirm('Hay pilotos que aún no han terminado la carrera anterior. ¿Empezar otra?')) return;
+  const d = { carrera: idNuevo(), conf: { esc: infoEsc(elegidoEsc), vueltas: prefs.vueltas } };
+  sala.enviar('cargar', d);
+  carreraGrupo(d);
+}
+function carreraGrupo(d) {
+  if (!d || !d.carrera || (modoGrupo && grupo.carrera === d.carrera) || estado === 'carga') return;
+  if (!sala.soyAnfitrion) aplicarConf(d.conf);
+  if (!elegidoCoche) { aviso('Elige un coche para correr'); return; }
+  grupo.carrera = d.carrera; grupo.salida = null; grupo.tCargar = Date.now(); grupo.ultimos.clear();
+  grupo.esperados = new Set(sala.pilotos.keys());
+  pausado = false; $('pausa').hidden = true; $('resultados').hidden = true;
+  sala.publicar({ fase: 'cargando', carrera: d.carrera, total: null, mejor: null });
+  sonido.iniciar();
+  aviso('🏁 ¡Carrera en grupo! ' + (elegidoEsc ? elegidoEsc.nombre : ''), 2500);
+  empezarPartida(true);
+}
+function comprobarSalida() {
+  if (!sala || !sala.soyAnfitrion || !modoGrupo || estado !== 'espera' || grupo.salida === grupo.carrera) return;
+  // los que estaban en la sala cuando se mandó cargar: cada uno, o en la salida o ya se fue
+  const todos = [...grupo.esperados].every(id => {
+    const p = sala.pilotos.get(id);
+    return !p || (p.carrera === grupo.carrera && p.fase !== 'cargando') || (p.carrera !== grupo.carrera && Date.now() - grupo.tCargar > 15000);
+  });
+  if (todos || Date.now() - grupo.tCargar > 90000) { sala.enviar('salida', { carrera: grupo.carrera }); darSalida(); }
+}
+setInterval(comprobarSalida, 1000);
+function darSalida() {
+  grupo.salida = grupo.carrera;
+  if (modoGrupo && estado === 'espera') {
+    estado = 'cuenta'; tCuenta = 3.999; ultimoPitido = 4; mensaje('', '');
+    if (sala) sala.publicar({ fase: 'carrera' });
+  }
+}
+// Tu sitio en la parrilla: de dos en dos, por orden de llegada a la sala
+function puestoParrilla() {
+  const s = puntoSalida();
+  const ids = [...sala.pilotos.values()].filter(p => p.carrera === grupo.carrera || p.id === sala.yo.id).sort(porLlegada).map(p => p.id);
+  const k = Math.max(0, ids.indexOf(sala.yo.id)), fila = Math.floor(k / 2), lado = ids.length === 1 ? 0 : (k % 2 ? 1 : -1);
+  const fx = Math.sin(s.rumbo), fz = Math.cos(s.rumbo);
+  return { x: s.x - fx * 8 * fila + fz * 1.9 * lado, z: s.z - fz * 8 * fila - fx * 1.9 * lado, rumbo: s.rumbo };
+}
+
+// Los coches de los demás: se preparan de uno en uno (los generados usan el creador, que es uno solo)
+function sincronizarRivales() {
+  if (!modoGrupo || !sala || !pista) { quitarRivales(); return; }
+  for (const [id, r] of grupo.rivales) {
+    const p = sala.pilotos.get(id);
+    if (!p || p.carrera !== grupo.carrera) { r.quitar(); grupo.rivales.delete(id); }
+  }
+  for (const p of sala.pilotos.values()) {
+    if (p.id === sala.yo.id || p.carrera !== grupo.carrera || grupo.rivales.has(p.id) || grupo.cargando.has(p.id)) continue;
+    if (!['cargando', 'listo', 'carrera', 'fin'].includes(p.fase)) continue;
+    grupo.cargando.add(p.id);
+    const carrera = grupo.carrera, info = p.coche;
+    colaModelos = colaModelos.then(async () => {
+      try {
+        if (!modoGrupo || grupo.carrera !== carrera) return;
+        let c = cocheDe(info), m;
+        try { m = await modeloDe(c); } catch (e) { console.warn('Coche de ' + p.nombre, e); c = indiceCoches.find(x => x.archivo) || elegidoCoche; m = await modeloDe(c); }
+        if (!modoGrupo || grupo.carrera !== carrera || !sala || !sala.pilotos.has(p.id)) return;
+        ponerReflejos(m.objeto);
+        const r = new Rival(THREE, scene, { id: p.id, nombre: p.nombre || 'Piloto', color: colorDe(p.id), modelo: m, coche: new Coche(pista, m.medidas, c.datos || {}), colocar: colocarCoche });
+        grupo.rivales.set(p.id, r);
+      } catch (e) { console.warn(e); } finally { grupo.cargando.delete(p.id); }
+    });
+  }
+}
+function quitarRivales() { for (const r of grupo.rivales.values()) r.quitar(); grupo.rivales.clear(); }
+
+// Lo recorrido, para ordenar a los pilotos: vueltas y controles pasados y lo que falta por carretera al siguiente
+function progreso() {
+  if (!crono) return 0;
+  if (crono.estado === 'fin') return 1e9;
+  const g = crono.objetivo, p = pista.caminos[0];
+  let falta = 0;
+  if (g) {
+    if (g.dRuta === undefined) { const pr = p && pista.proyectar(p, g.x, g.z, 60); g.dRuta = pr ? pr.d : null; }
+    const pr = g.dRuta != null && pista.proyectar(p, coche.x, coche.z, 40);
+    falta = pr ? (p.cerrado ? (((g.dRuta - pr.d) % p.total) + p.total) % p.total : Math.max(0, g.dRuta - pr.d)) : Math.hypot(g.x - coche.x, g.z - coche.z);
+  }
+  return ((crono.vuelta - 1) * (crono.total + 1) + crono.siguiente) * 100000 - Math.min(falta, 99999);
+}
+const vEstado = new Float32Array(ESTADO.n);
+let tEnvio = 0;
+function enviarEstadoGrupo(dt) {
+  if (!sala || (tEnvio += dt) < 1 / 15) return;
+  tEnvio = 0;
+  const v = vEstado;
+  v[ESTADO.t] = (performance.now() - grupo.t0) / 1000;
+  v[ESTADO.x] = coche.x; v[ESTADO.y] = coche.y; v[ESTADO.z] = coche.z;
+  v[ESTADO.rumbo] = coche.rumbo; v[ESTADO.cab] = coche.cab; v[ESTADO.bal] = coche.bal; v[ESTADO.giro] = coche.giro;
+  v[ESTADO.vel] = coche.velocidad * 3.6; v[ESTADO.prog] = progreso(); v[ESTADO.vuelta] = crono.vuelta;
+  v[ESTADO.fase] = FASE[estado] != null ? FASE[estado] : FASE.carrera;
+  sala.enviarEstado(v);
+}
+// Clasificación de la carrera de ahora: [{ id, nombre, color, total, mejor, prog, fase, yo, retirado }]
+function puestosGrupo() {
+  if (!sala) return [];
+  const lista = [];
+  for (const p of sala.pilotos.values()) {
+    if (p.carrera !== grupo.carrera) continue;
+    const yo = p.id === sala.yo.id, u = grupo.ultimos.get(p.id);
+    lista.push({ id: p.id, nombre: p.nombre || 'Piloto', color: colorDe(p.id), yo, fase: yo ? sala.yo.fase : p.fase,
+      total: yo ? sala.yo.total : p.total, mejor: yo ? sala.yo.mejor : p.mejor,
+      prog: yo ? progreso() : u ? u[ESTADO.prog] : -Infinity, vuelta: yo ? crono && crono.vuelta : u ? u[ESTADO.vuelta] : 1,
+      retirado: !yo && p.fase === 'menu' && p.total == null });
+  }
+  const orden = ordenar(lista.filter(x => !x.retirado));
+  return orden.concat(lista.filter(x => x.retirado));
+}
+function pintarPuestos() {
+  const d = $('h-grupo'); if (!d) return;
+  const ps = puestosGrupo(), k = ps.findIndex(x => x.yo);
+  d.hidden = ps.length < 2 && !grupo.rivales.size;
+  const t = $('hud-tiempos').getBoundingClientRect(); // justo debajo de los tiempos (su alto cambia con la pantalla)
+  if (t.height) d.style.top = Math.round(t.bottom + 8) + 'px';
+  d.innerHTML = `<div class="g-puesto">${k + 1}º<small>/${ps.length}</small></div>` +
+    ps.map((x, i) => `<div class="${x.yo ? 'yo' : ''}${x.retirado ? ' fuera' : ''}"><i style="background:${x.color}"></i>${i + 1}. ${esc_(x.nombre)}${x.total != null ? ' 🏁' : x.retirado ? ' ✖' : ''}</div>`).join('');
+}
+function pintarResultadosGrupo() {
+  const d = $('r-grupo'); if (!d) return;
+  d.hidden = !modoGrupo;
+  if (!modoGrupo) return;
+  const ps = puestosGrupo();
+  d.innerHTML = `<h3>👥 Carrera de la sala ${sala ? sala.codigo : ''}</h3><ol>` + ps.map(x => `<li class="${x.yo ? 'yo' : ''}">
+      <i style="background:${x.color}"></i><span>${esc_(x.nombre)}</span>
+      <em>${x.total != null ? fmt(x.total) + (x.mejor != null ? ' <small>(mejor vuelta ' + fmt(x.mejor) + ')</small>' : '') : x.retirado ? 'retirado' : 'en carrera… vuelta ' + Math.min(x.vuelta || 1, crono ? crono.vueltas : 1)}</em></li>`).join('') + '</ol>';
+}
+setInterval(() => { if (modoGrupo && !$('resultados').hidden) pintarResultadosGrupo(); }, 1000);
+// Botones de la pausa y de los resultados, según sea una carrera en grupo o no
+function ponerModoGrupo() {
+  $('p-reiniciar').hidden = modoGrupo; $('r-repetir').hidden = modoGrupo;
+  $('p-menu').textContent = modoGrupo ? '🚪 Dejar la carrera (volver a la sala)' : '☰ Cambiar escenario o coche';
+  $('r-menu').textContent = modoGrupo ? '↩ Volver a la sala' : '☰ Menú';
+  const h = $('h-grupo'); if (h) h.hidden = !modoGrupo;
+  if (!modoGrupo) { const r = $('r-grupo'); if (r) r.hidden = true; }
+}
+
+// Panel del menú: crear o unirse a una sala; dentro, el código, los pilotos y el botón de empezar del anfitrión
+const TEXTO_FASE = { menu: 'en la sala', cargando: 'cargando…', listo: 'en la salida', carrera: 'corriendo' };
+const TEXTO_RED = { directa: '⚡', servidor: '☁', conectando: '…' };
+function pintarGrupo() {
+  const d = $('grupo'); if (!d) return;
+  $('btn-correr').hidden = !!sala;
+  if (!sala) {
+    const online = configOnline();
+    d.innerHTML = `<div class="grupo-cab"><b>👥 Carrera en grupo</b></div>
+      <p class="nota">Corred a la vez por internet (de 2 a 8 pilotos): uno crea la sala y pasa el código o el enlace a los demás.</p>
+      ${!online ? '<p class="nota">Necesita la clasificación online configurada (docs/ONLINE.md).</p>' : `
+      <div class="grupo-entrar">
+        <button id="g-crear" class="destacado" ${grupo.uniendo ? 'disabled' : ''}>➕ Crear sala</button>
+        <span class="o">o</span>
+        <input id="g-codigo" maxlength="8" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" value="${esc_(grupo.codigoPedido || '')}">
+        <button id="g-unirse" ${grupo.uniendo ? 'disabled' : ''}>Unirse</button>
+      </div>
+      ${grupo.uniendo ? '<p class="nota">Conectando con la sala…</p>' : ''}${grupo.error ? `<p class="nota error">⚠ ${esc_(grupo.error)}</p>` : ''}`}`;
+    const c = $('g-crear'); if (c) c.onclick = () => entrarSala(codigoNuevo());
+    const u = $('g-unirse'); if (u) u.onclick = () => entrarSala($('g-codigo').value);
+    const i = $('g-codigo'); if (i) { i.oninput = () => { grupo.codigoPedido = normalizarCodigo(i.value); }; i.onkeydown = e => { if (e.key === 'Enter') entrarSala(i.value); }; }
+    return;
+  }
+  const soy = sala.soyAnfitrion, anf = sala.anfitrion, ps = [...sala.pilotos.values()].sort(porLlegada);
+  const conf = soy ? { esc: elegidoEsc, vueltas: prefs.vueltas } : (anf && anf.conf) || {};
+  const enCarrera = ps.filter(p => p.carrera && ['cargando', 'listo', 'carrera'].includes(p.fase));
+  d.innerHTML = `<div class="grupo-cab"><b>👥 Sala <span class="g-codigo">${sala.codigo}</span></b>
+      <span><button id="g-copiar">🔗 Copiar enlace</button> <button id="g-salir">Salir</button></span></div>
+    <p class="nota">Circuito: <b>${esc_(conf.esc ? conf.esc.nombre : '–')}</b> · ${conf.vueltas || '?'} ${conf.vueltas == 1 ? 'vuelta' : 'vueltas'}${soy ? ' (lo eliges tú arriba)' : ' (lo elige ' + esc_(anf ? anf.nombre : 'el anfitrión') + ')'}</p>
+    <ul class="g-pilotos">${ps.map(p => {
+      const yo = p.id === sala.yo.id, red = yo ? '' : sala.red(p.id);
+      const f = p.fase === 'fin' && p.total != null ? '🏁 ' + fmt(p.total) : TEXTO_FASE[p.fase] || '';
+      return `<li class="${yo ? 'yo' : ''}"><i style="background:${colorDe(p.id)}"></i><span>${p === anf ? '👑 ' : ''}${esc_(p.nombre || 'Piloto')}${yo ? ' (tú)' : ''}</span>
+        <small>${esc_(p.coche ? p.coche.nombre : '')}</small><em>${f}</em>${red ? `<span class="red" title="${red === 'directa' ? 'Conexión directa' : red === 'servidor' ? 'Sin conexión directa: por el servidor' : 'Conectando…'}">${TEXTO_RED[red]}</span>` : '<span></span>'}</li>`;
+    }).join('')}</ul>
+    ${soy ? `<button id="g-empezar" class="primario grande">🏁 Empezar la carrera${ps.length > 1 ? ' (' + ps.length + ' pilotos)' : ''}</button>
+      ${ps.length < 2 ? '<p class="nota">Pasa el código <b>' + sala.codigo + '</b> o el enlace a tus amigos. Puedes empezar aunque estés solo.</p>' : ''}`
+      : enCarrera.length ? '<p class="nota">Hay una carrera en marcha: entrarás en la siguiente.</p>'
+      : `<p class="nota">Esperando a que ${esc_(anf ? anf.nombre : 'el anfitrión')} empiece la carrera. Mientras, elige tu coche.</p>`}`;
+  $('g-copiar').onclick = async () => {
+    const u = new URL(location.href); u.search = '?sala=' + sala.codigo;
+    try { await navigator.clipboard.writeText(u.href); aviso('🔗 Enlace copiado: ' + u.href, 3000); } catch (e) { prompt('Copia el enlace de la sala:', u.href); }
+  };
+  $('g-salir').onclick = () => salirSala();
+  const e = $('g-empezar'); if (e) e.onclick = () => empezarGrupo();
+}
+
+// Pantalla completa (botón ⛶ o tecla F). En iPhone no existe para páginas: se juega a pantalla completa añadiendo
+// Rallys a la pantalla de inicio (manifest.webmanifest).
+const esIOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const enPantallaCompleta = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function pantallaCompleta(v) {
+  const el = document.documentElement, dentro = enPantallaCompleta();
+  if (v === undefined) v = !dentro;
+  if (v && !dentro) {
+    const f = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!f) { aviso(esIOS ? 'En iPhone: botón Compartir → «Añadir a pantalla de inicio», y abre Rallys desde ese icono: se juega a pantalla completa.' : 'Este navegador no permite la pantalla completa', 7000); return; }
+    Promise.resolve(f.call(el, { navigationUI: 'hide' }))
+      .then(() => { if (esTactil() && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); })
+      .catch(e => aviso('No se pudo poner la pantalla completa: ' + e.message));
+  } else if (!v && dentro) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+}
+function pintarPantalla() {
+  const d = enPantallaCompleta();
+  for (const b of document.querySelectorAll('.btn-pantalla')) { b.textContent = d ? '🗗' : '⛶'; b.title = d ? 'Salir de la pantalla completa (F)' : 'Pantalla completa (F)'; }
+  const m = $('btn-pantalla-menu'); if (m) m.textContent = d ? '🗗 Salir de la pantalla completa' : '⛶ Pantalla completa';
+  const p = $('p-pantalla'); if (p) p.textContent = d ? '🗗 Salir de la pantalla completa' : '⛶ Pantalla completa';
+}
+document.addEventListener('fullscreenchange', pintarPantalla);
+document.addEventListener('webkitfullscreenchange', pintarPantalla);
+$('btn-pantalla-menu').onclick = () => pantallaCompleta();
+$('p-pantalla').onclick = () => pantallaCompleta();
+if (window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) { $('btn-pantalla-menu').hidden = true; $('p-pantalla').hidden = true; for (const b of document.querySelectorAll('.btn-pantalla')) b.hidden = true; }
+
+// ---------------------------------------------------------------------------
 // Arranque
 // ---------------------------------------------------------------------------
 (async () => {
@@ -746,6 +1127,7 @@ function emitirParticulas(dt) {
   pintarMenu();
   requestAnimationFrame(bucle);
   if (params.has('jugar')) empezarPartida();
+  else if (params.get('sala')) { grupo.codigoPedido = normalizarCodigo(params.get('sala')); if (prefs.piloto) entrarSala(grupo.codigoPedido); else { pintarGrupo(); aviso('Pon tu nombre de piloto y pulsa «Unirse» para entrar en la sala ' + grupo.codigoPedido, 6000); } }
 })();
 
 // Para las pruebas automáticas (Playwright) y para trastear desde la consola
@@ -756,6 +1138,7 @@ window.__rallys = {
   saltarCuenta() { tCuenta = 0.001; },
   // foto de un coche para su tarjeta (tools/exportar-coches-fijos.cjs la guarda junto al .glb)
   async foto(archivo) { const m = await cargarCoche(url(archivo)); return fotoCoche(m.objeto, 480, 266); },
+  get sala() { return sala; }, get grupo() { return grupo; }, get modoGrupo() { return modoGrupo; }, entrarSala, salirSala, empezarGrupo,
   get fantasma() { return fantasma; }, get rival() { return rival; }, get subida() { return subida; }, get versionEsc() { return versionEsc; },
   avanzar, set autopiloto(v) { autopiloto = v; }, get autopiloto() { return autopiloto; }
 };

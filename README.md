@@ -19,6 +19,7 @@ atrás; hay que pasar los **puntos de control en orden** y cruzar la **meta** en
 | Cámara (persecución · capó · cabina) | C | Y | 🎥 |
 | Volver a la pista | R | X | ↺ |
 | Pausa · sonido | Esc / P · M | Start | ⏸ |
+| Pantalla completa | F | | ⛶ |
 
 Escenarios que se pueden cargar:
 - Los de `escenarios/indice.json`: la plantilla «rally» de Mundos- generada al vuelo (`"plantilla": "rally", "semilla": 4242`) o un `.escenario.json` exportado (`"archivo": …`).
@@ -35,6 +36,14 @@ Cada mejor vuelta tuya se guarda con su **fantasma** (un coche semitransparente 
 contra él o contra el de cualquiera de la **clasificación** del circuito. Con Supabase configurado (gratis, ver
 [docs/ONLINE.md](docs/ONLINE.md)), las mejores vueltas se suben solas y ves tu puesto; sin él, todo funciona igual con
 tus propias vueltas en el navegador.
+
+## Carreras en grupo
+**👥 Crear sala** y pasar el código o el enlace: de 2 a 8 pilotos corren a la vez por internet, cada uno con su coche,
+viendo a los demás en la pista, en el minimapa y en la lista de puestos; al final, la clasificación de la carrera. Las
+posiciones van directas entre jugadores (WebRTC) y la sala usa el mismo Supabase de la clasificación. Detalles en
+[docs/GRUPO.md](docs/GRUPO.md). También hay **pantalla completa** (⛶ o F; en iPhone, «Añadir a pantalla de inicio»).
+
+![Carrera en grupo](docs/capturas/grupo-carrera.png)
 
 ## Circuitos
 
@@ -143,7 +152,9 @@ agarre en tierra, suspensión, frenos y peso, además del tipo de carrocería, l
 | `obstaculos.js` | Choques: troncos de árboles y rocas (leídos de lo que dibuja Mundos-), **casas, fuente y farolas del pueblo** (los `colliders` de su generador), **la iglesia** y demás `.glb` (su caja), cajas y muros, postes de meta y controles, **barreras** de los caminos (guardarraíl, muro, neumáticos… y la cinta y los conos, que solo frenan) y pretiles de los puentes. |
 | `cronometro.js` | Salida, controles en orden, vueltas, meta, parciales contra la mejor vuelta y récords. Si el camino no es circuito, es un tramo de una pasada. |
 | `camaras.js`, `controles.js`, `sonido.js`, `particulas.js` | Persecución/capó/cabina · teclado, mando y táctil · motor, superficie, derrape y golpes con Web Audio (sin archivos) · polvo, barro y salpicaduras. |
-| `main.js` | Menú, carga, bucle (física a 120 Hz), HUD y minimapa. `window.__rallys` deja probarlo desde la consola (piloto automático incluido). |
+| `main.js` | Menú, carga, bucle (física a 120 Hz), HUD y minimapa, carreras en grupo y pantalla completa. `window.__rallys` deja probarlo desde la consola (piloto automático incluido). |
+| `fantasma.js`, `clasificacion.js` | Fantasmas (grabación, formato compacto y el coche semitransparente) y clasificación online en Supabase ([docs/ONLINE.md](docs/ONLINE.md)). |
+| `sala.js`, `rivales.js` | Carreras en grupo: la sala (Supabase Realtime + WebRTC) y los coches de los demás, interpolados ([docs/GRUPO.md](docs/GRUPO.md)). |
 
 `npm test` prueba sin navegador una vuelta entera con piloto automático (los 5 controles en orden, el puente por
 encima del cauce, asfalto/grava/adoquín y la meta) y un choque contra el guardarraíl.

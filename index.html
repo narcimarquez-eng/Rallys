@@ -4,6 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#101418">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Rallys">
+  <link rel="manifest" href="../../manifest.webmanifest">
+  <link rel="icon" href="../../icono.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../../icono-180.png">
   <title>Rallys</title>
   <!-- Los módulos de Mundos- (vendor/mundos, copiados con tools/actualizar-mundos.sh) cargan sus recursos con rutas
        relativas a la página ('assets/…', 'glb/…', 'js/…'): con esta base las encuentran sin tocarlos. Lo del juego
@@ -18,7 +25,7 @@
   <!-- Menú: escenario, coche y opciones -->
   <section id="menu" class="panel-pantalla">
     <div class="menu-caja">
-      <h1>🏁 Rallys</h1>
+      <div class="menu-titulo"><h1>🏁 Rallys</h1><button id="btn-pantalla-menu" title="Pantalla completa (F)">⛶ Pantalla completa</button></div>
       <p class="sub">Elige escenario y coche. Los escenarios se hacen en <a href="https://github.com/narcimarquez-eng/Mundos-" target="_blank" rel="noopener">Mundos-</a> y los coches en <a href="https://github.com/narcimarquez-eng/Hacer-coches-" target="_blank" rel="noopener">Hacer coches</a>.</p>
       <h2>1 · Escenario</h2>
       <div id="lista-escenarios" class="tarjetas"></div>
@@ -42,10 +49,11 @@
       </div>
       <p id="record-menu" class="record"></p>
       <div id="clasif" class="clasif"></div>
+      <div id="grupo" class="grupo"></div>
       <button id="btn-correr" class="primario grande">¡A correr!</button>
       <details class="ayuda">
         <summary>Controles</summary>
-        <p><b>Teclado:</b> W/↑ acelerar · S/↓ frenar y marcha atrás · A D/← → girar · Espacio freno de mano · C cámara · R volver a la pista · Esc pausa · M sonido</p>
+        <p><b>Teclado:</b> W/↑ acelerar · S/↓ frenar y marcha atrás · A D/← → girar · Espacio freno de mano · C cámara · R volver a la pista · Esc pausa · M sonido · F pantalla completa</p>
         <p><b>Mando:</b> RT acelerar · LT frenar · stick izquierdo girar · A/B freno de mano · Y cámara · X volver a la pista · Start pausa</p>
         <p><b>Móvil:</b> ◀ ▶ para girar, pedales a la derecha (acelerar, frenar y freno de mano) y botones arriba.</p>
       </details>
@@ -64,6 +72,7 @@
       <div><span class="et">Control</span> <b id="h-control">1/5</b></div>
     </div>
     <canvas id="minimapa" width="180" height="180"></canvas>
+    <div id="h-grupo" hidden></div>
     <div id="mensaje"></div>
     <div id="submensaje"></div>
     <div id="hud-coche">
@@ -76,6 +85,7 @@
       <button data-accion="camara" title="Cámara (C)">🎥</button>
       <button data-accion="reiniciar" title="Volver a la pista (R)">↺</button>
       <button data-accion="pausa" title="Pausa (Esc)">⏸</button>
+      <button data-accion="pantalla" class="btn-pantalla" title="Pantalla completa (F)">⛶</button>
     </div>
   </div>
 
@@ -92,6 +102,7 @@
       <button id="p-seguir" class="primario grande">Seguir</button>
       <button id="p-reiniciar">↻ Empezar de nuevo</button>
       <button id="p-menu">☰ Cambiar escenario o coche</button>
+      <button id="p-pantalla">⛶ Pantalla completa</button>
       <label class="fila">Sonido <input type="checkbox" id="p-sonido" checked></label>
       <label class="fila">Botones táctiles <input type="checkbox" id="p-tactil"></label>
     </div>
@@ -104,6 +115,7 @@
       <div id="r-total" class="t-grande"></div>
       <div id="r-record"></div>
       <ol id="r-vueltas"></ol>
+      <div id="r-grupo" class="r-grupo" hidden></div>
       <p id="r-online" class="r-online"></p>
       <button id="r-repetir" class="primario grande">↻ Otra vez</button>
       <button id="r-menu">☰ Menú</button>

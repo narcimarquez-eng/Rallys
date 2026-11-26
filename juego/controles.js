@@ -3,7 +3,7 @@
 // y en acciones sueltas: 'camara', 'pausa', 'reiniciar' (volver a la pista).
 //
 // Teclado: W/↑ acelerar · S/↓ frenar y marcha atrás · A D/← → girar · Espacio freno de mano · C cámara ·
-//          R volver a la pista · Esc/P pausa · M sonido
+//          R volver a la pista · Esc/P pausa · M sonido · F pantalla completa
 // Mando:   RT acelerar · LT frenar · stick izquierdo (o cruceta) girar · A/B freno de mano · Y cámara ·
 //          X volver a la pista · Start pausa
 // Táctil:  ◀ ▶ girar (a la izquierda) · pedales acelerar y frenar y freno de mano (a la derecha) · botones arriba
@@ -25,6 +25,7 @@ export class Controles {
         if (k === 'KeyR') this.acciones.push('reiniciar');
         if (k === 'Escape' || k === 'KeyP') this.acciones.push('pausa');
         if (k === 'KeyM') this.acciones.push('sonido');
+        if (k === 'KeyF') this.acciones.push('pantalla');
       }
       this.teclas.add(k);
     });
