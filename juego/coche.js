@@ -30,12 +30,24 @@ export const PARAMS_BASE = {
   frenada: 1.05,         // × peso
   repartoFreno: 0.64,
   // neumáticos: multiplican el agarre en firme (asfalto, adoquín) y en suelto (todo lo demás)
-  agarreFirme: 1, agarreSuelto: 1
+  agarreFirme: 1, agarreSuelto: 1,
+  ayudas: 'medias'       // ayudas a la conducción: 'altas', 'medias' o 'no' (ver AYUDAS)
+};
+// Ayudas a la conducción, como el control de estabilidad y el de tracción de un coche de calle, y lo que cuesta girar:
+//  · esc: control de estabilidad (frena el giro del coche cuando la trasera se va: corrige el sobreviraje)
+//  · derrape: el ángulo de derrape (rad) que se deja sin corregir
+//  · tc: control de tracción (cuánto del agarre que queda puede usar el motor: 1 = no patina)
+//  · vGiro: m/s a los que el giro máximo de las ruedas se queda en la mitad (más bajo: dirección más tranquila)
+//  · caida: cuánto cae el agarre al pasar del límite (1,45 = neumático real; menos = derrapes más progresivos)
+export const AYUDAS = {
+  altas: { esc: 1, derrape: 0.12, tc: 1, vGiro: 11, caida: 1.2 },
+  medias: { esc: 0.65, derrape: 0.26, tc: 0.7, vGiro: 13, caida: 1.3 },
+  no: { esc: 0, derrape: 9, tc: 0, vGiro: 18, caida: 1.45 }
 };
 const FIRMES = new Set(['asfalto', 'piedra']);
 
-function curva(alfa, B) { // fuerza lateral normalizada (−1…1) según el ángulo de deriva
-  return Math.sin(1.45 * Math.atan(B * alfa));
+function curva(alfa, B, C) { // fuerza lateral normalizada (−1…1) según el ángulo de deriva (C: forma; caída tras el pico)
+  return Math.sin(C * Math.atan(B * alfa));
 }
 function par(rpm, p) { // par del motor (N·m) con pico hacia el 60 % del régimen
   const pmax = p.potencia * 1000 / (5200 * Math.PI / 30) * 1.12;
@@ -113,10 +125,13 @@ export class Coche {
     const v = Math.hypot(this.vx, this.vz);
     this.velocidad = v;
 
+    const A = AYUDAS[p.ayudas] || AYUDAS.medias;
     // --- Dirección: menos giro cuanto más rápido, con velocidad de giro limitada (como un volante) ---
-    const giroMax = p.giroMax / (1 + Math.abs(vL) / 22);
+    // la rapidez va en proporción al giro máximo: a 100 km/h se tarda lo mismo en llegar a tope que parado (si no,
+    // en recta, un toque de tecla cruzaba las ruedas de golpe y el coche se iba)
+    const giroMax = p.giroMax / (1 + Math.abs(vL) / A.vGiro);
     const objetivo = -mando.giro * giroMax;
-    const rapidez = (Math.abs(objetivo) < Math.abs(this.giro) ? 4.5 : 2.6) * (mando.analogico ? 3 : 1);
+    const rapidez = giroMax * (Math.abs(objetivo) < Math.abs(this.giro) ? 6 : 3.2) * (mando.analogico ? 2.5 : 1);
     this.giro += Math.max(-rapidez * dt, Math.min(rapidez * dt, objetivo - this.giro));
 
     // --- Suspensión: altura del suelo bajo cada rueda y fuerza de su muelle ---
@@ -193,8 +208,34 @@ export class Coche {
     const alfaTras = Math.atan2(vT - this.b * this.r, vRef);
     const BDel = 7 + 7 * Math.min(1, muDel), BTras = 7 + 7 * Math.min(1, muTras);
     const limDel = muDel * fzDel, limTras = muTras * fzTras * (mando.manoFreno ? 0.55 : 1);
-    let fyDel = -limDel * curva(alfaDel, BDel);
-    let fyTras = -limTras * curva(alfaTras, BTras);
+    let fyDel = -limDel * curva(alfaDel, BDel, A.caida);
+    let fyTras = -limTras * curva(alfaTras, BTras, A.caida);
+    // control de tracción: el motor solo usa el agarre que le dejan las curvas (círculo de fricción) en cada eje
+    if (A.tc > 0 && fMotor > 0) {
+      const cap = 0.97 - 0.12 * A.tc;
+      const libre = (lim, fyy) => Math.sqrt(Math.max(0, (lim * cap) ** 2 - fyy * fyy));
+      let k = 1;
+      if (p.reparto > 0) k = Math.min(k, libre(limDel, fyDel) / (fMotor * p.reparto));
+      if (p.reparto < 1) k = Math.min(k, libre(limTras, fyTras) / (fMotor * (1 - p.reparto)));
+      fMotor *= 1 - A.tc + A.tc * Math.max(0.15, Math.min(1, k));
+    }
+    // control de estabilidad: si el coche gira más de lo que pide el volante (o derrapa más de A.derrape), corta gas
+    let tzEsc = 0;
+    if (A.esc > 0 && Math.abs(vL) > 4 && this.enSuelo && !mando.manoFreno) {
+      const mu = (muDel + muTras) / 2;
+      const rLim = mu * G / Math.max(4, v) * 1.12;
+      const rObj = Math.max(-rLim, Math.min(rLim, vL * Math.tan(this.giro) / m.batalla));
+      const holgura = 0.06 + 0.25 * (1 - A.esc);
+      const hi = rObj >= 0 ? rObj * (1.12 + 0.3 * (1 - A.esc)) + holgura : holgura;
+      const lo = rObj >= 0 ? -holgura : rObj * (1.12 + 0.3 * (1 - A.esc)) - holgura;
+      const exceso = this.r - Math.max(lo, Math.min(hi, this.r));
+      const beta = Math.atan2(vT, Math.abs(vL));
+      const sobra = beta - Math.max(-A.derrape, Math.min(A.derrape, beta));
+      tzEsc = (-exceso * 9 + sobra * 7) * this.Iz * A.esc;
+      const tope = mu * masa * G * m.via * 0.6;
+      tzEsc = Math.max(-tope, Math.min(tope, tzEsc));
+      if (exceso || sobra) fMotor *= Math.max(0.2, 1 - A.esc * (Math.abs(exceso) * 2.5 + Math.abs(sobra) * 3));
+    }
     // longitudinal: motor repartido, frenos y freno de mano
     let fxDel = fMotor * p.reparto, fxTras = fMotor * (1 - p.reparto);
     const sentido = Math.abs(vL) > 0.3 ? Math.sign(vL) : 0;
@@ -255,7 +296,7 @@ export class Coche {
     this.vx += (FL * sn + FT * cs) / masa * dt;
     this.vz += (FL * cs - FT * sn) / masa * dt;
     // giro: par de los neumáticos
-    let tz = this.a * (fyDel * cd + fxDel * sd) - this.b * fyTras;
+    let tz = this.a * (fyDel * cd + fxDel * sd) - this.b * fyTras + tzEsc;
     tz -= this.r * this.Iz * 1.2 * lento * enContacto; // sin derrapes fantasma parado
     this.r += tz / this.Iz * dt;
     if (!this.enSuelo) this.r *= Math.exp(-dt * 0.3);

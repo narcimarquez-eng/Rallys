@@ -34,6 +34,7 @@ try { Object.assign(prefs, JSON.parse(localStorage.getItem('rallys.prefs') || '{
 if (!(prefs.dorsal >= 1 && prefs.dorsal <= 99)) prefs.dorsal = 2 + Math.floor(Math.random() * 97);
 if (!/^#[0-9a-f]{6}$/i.test(prefs.colorPegatinas || '')) prefs.colorPegatinas = ['#e8541e', '#1f6fd6', '#1e9e50', '#c0182b', '#7b3fd0', '#f0b400'][Math.floor(Math.random() * 6)];
 if (prefs.publico === undefined) prefs.publico = true;
+if (!['altas', 'medias', 'no'].includes(prefs.ayudas)) prefs.ayudas = 'altas'; // ayudas a la conducción (coche.js, AYUDAS)
 const guardarPrefs = () => { try { localStorage.setItem('rallys.prefs', JSON.stringify(prefs)); } catch (e) { /* nada */ } };
 const esTactil = () => prefs.tactil != null ? prefs.tactil : matchMedia('(pointer: coarse)').matches;
 
@@ -208,6 +209,15 @@ $('sel-hora').onchange = e => { prefs.hora = e.target.value; guardarPrefs(); };
 $('sel-dorsal').value = String(prefs.dorsal);
 $('sel-dorsal').onchange = e => { const v = Math.round(+e.target.value); if (v >= 1 && v <= 99) { prefs.dorsal = v; guardarPrefs(); sincronizarYo(); } else e.target.value = String(prefs.dorsal); };
 $('sel-publico').checked = !!prefs.publico;
+// Ayudas a la conducción: en el menú y en la pausa (se notan al momento, también en plena carrera)
+for (const id of ['sel-ayudas', 'p-ayudas']) {
+  $(id).value = prefs.ayudas;
+  $(id).onchange = e => {
+    prefs.ayudas = e.target.value; guardarPrefs();
+    for (const o of ['sel-ayudas', 'p-ayudas']) $(o).value = prefs.ayudas;
+    if (coche) coche.p.ayudas = prefs.ayudas;
+  };
+}
 $('sel-publico').onchange = e => { prefs.publico = e.target.checked; guardarPrefs(); };
 $('btn-abrir-esc').onclick = () => $('fichero-esc').click();
 $('fichero-esc').onchange = async e => {
@@ -373,7 +383,7 @@ async function prepararCoche() {
   pegatinasCoche = prefs.dorsal + prefs.colorPegatinas;
   datosCoche = c;
   scene.add(modelo.objeto);
-  coche = new Coche(pista, modelo.medidas, c.datos);
+  coche = new Coche(pista, modelo.medidas, Object.assign({}, c.datos, { ayudas: prefs.ayudas }));
   coche.alCambiar = () => { };
 }
 

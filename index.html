@@ -45,6 +45,7 @@
         <label>Vueltas <select id="sel-vueltas"><option>1</option><option>2</option><option selected>3</option><option>5</option></select></label>
         <label>Cámara <select id="sel-camara"><option value="persecucion">Persecución</option><option value="capo">Capó</option><option value="cabina">Cabina</option></select></label>
         <label>Calidad <select id="sel-calidad"><option value="baja">Baja (móvil)</option><option value="media" selected>Media</option><option value="alta">Alta</option></select></label>
+        <label title="Control de estabilidad y de tracción, y una dirección más tranquila">Ayudas <select id="sel-ayudas"><option value="altas">Altas (fácil)</option><option value="medias">Medias</option><option value="no">Sin ayudas (experto)</option></select></label>
         <label>Dorsal <input id="sel-dorsal" type="number" min="1" max="99" inputmode="numeric"></label>
         <label><input id="sel-publico" type="checkbox"> Público</label>
         <label>Hora <select id="sel-hora"><option value="">La del escenario</option><option value="9">Mañana</option><option value="13">Mediodía</option><option value="17.5">Atardecer</option></select></label>
@@ -105,6 +106,7 @@
       <button id="p-reiniciar">↻ Empezar de nuevo</button>
       <button id="p-menu">☰ Cambiar escenario o coche</button>
       <button id="p-pantalla">⛶ Pantalla completa</button>
+      <label class="fila">Ayudas <select id="p-ayudas"><option value="altas">Altas (fácil)</option><option value="medias">Medias</option><option value="no">Sin ayudas (experto)</option></select></label>
       <label class="fila">Sonido <input type="checkbox" id="p-sonido" checked></label>
       <label class="fila">Botones táctiles <input type="checkbox" id="p-tactil"></label>
     </div>

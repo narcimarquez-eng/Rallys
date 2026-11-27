@@ -21,6 +21,10 @@ atrás; hay que pasar los **puntos de control en orden** y cruzar la **meta** en
 | Pausa · sonido | Esc / P · M | Start | ⏸ |
 | Pantalla completa | F | | ⛶ |
 
+**Ayudas a la conducción** (en el menú y en la pausa): *Altas* (por defecto: control de estabilidad y de tracción,
+dirección tranquila a alta velocidad; el coche derrapa un poco pero no se cruza), *Medias* (deja derrapar más) y *Sin
+ayudas* (la física tal cual: los coches potentes de tracción trasera se cruzan si se acelera en curva).
+
 Escenarios que se pueden cargar:
 - Los de `escenarios/indice.json`: la plantilla «rally» de Mundos- generada al vuelo (`"plantilla": "rally", "semilla": 4242`) o un `.escenario.json` exportado (`"archivo": …`).
 - **📂 Abrir .escenario.json** (exportado con 💾 en Mundos-) o **🔗 una dirección web** a uno.
