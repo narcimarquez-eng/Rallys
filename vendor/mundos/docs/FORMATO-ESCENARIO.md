@@ -13,7 +13,7 @@ Unidades en **metros**. Ejes como en three.js: `x` y `z` en el suelo, `y` hacia 
   "nextId": 31,                   // contador para ids nuevos
   "creado": "…", "actualizado": "…",
   "terreno": { … },
-  "ambiente": { "hora": 13, "niebla": 0.35, "nubes": 0.4, "cielo": "auto" },
+  "ambiente": { "hora": 13, "niebla": 0.35, "nubes": 0.4, "cielo": "foto" },   // cielo: "foto" (fotos 360°; "auto" igual) o "procedural"
   "caminos": [ /* Camino */ ],
   "elementos": [ /* Elemento */ ],
   "enlaces": { "rpgBase": "https://narcimarquez-eng.github.io/Creador-de-mundos-Rpg/" },
@@ -31,7 +31,8 @@ Unidades en **metros**. Ejes como en three.js: `x` y `z` en el suelo, `y` hacia 
 | `vegetacion` | `Uint8Array` de `res × res` en base64 (opcional): vegetación baja pintada. 0 = automática, 255 = nada, 1–250 = `1 + tipo·50 + (densidad − 1)` con `tipo` 0 hierba, 1 trigo, 2 flores, 3 hierba alta, 4 bambú y `densidad` 1–50 (÷ 50). `Escenario.vegetacionEn(esc, x, z)` da lo que crece en un punto. |
 | `hierbaAuto` | Densidad (0–1) de la hierba automática sobre los suelos de hierba, hierba seca y musgo. 0 = sin hierba automática. |
 | `bioma` | `templado`, `desierto`, `tropical`, `nevado`, `volcanico` u `otono`: decide los materiales automáticos y el color del agua. |
-| `gen` | Parámetros con los que se generó: `{ tipo, escala, altura, octavas, base, semilla }`. `tipo`: `plano`, `colinas`, `montanas`, `isla`, `archipielago`, `valle`, `dunas`, `mesetas`, `canon`, `crater`. |
+| `rocaPared` | Roca de las paredes, riscos y cumbres de roca: `auto` (la del bioma, por defecto), `mezcla`, `granito`, `gris`, `musgo`, `estratos`, `ocre`, `oscura` o `roca` (la genérica). Materiales 14–19 = esas piedras. |
+| `gen` | Parámetros con los que se generó: `{ tipo, escala, altura, octavas, base, semilla, riscos }` (`riscos`: 0–1, riscos en las laderas altas). `tipo`: `plano`, `colinas`, `montanas`, `isla`, `archipielago`, `valle`, `dunas`, `mesetas`, `canon`, `crater`, y de relieve llamativo `canones`, `desfiladero`, `mesas`, `acantilados`, `tepuis`. |
 | `agua` | `{ activa, nivel, color }`: plano de agua a esa altura (`color` null = el del bioma). |
 | `bordes` | `cortado` (bloque) o `infinito` (en el visor el agua llega al horizonte y no se dibuja el borde). |
 | `cotaNieve` | Opcional: altura (m) a partir de la que el material automático es la «cima» del bioma (nieve en el templado). Sin ella, la cima es el 18 % más alto del terreno si hay más de 40 m de desnivel. |

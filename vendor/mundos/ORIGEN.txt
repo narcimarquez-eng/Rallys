@@ -1,6 +1,6 @@
 Copia de Mundos- (https://github.com/narcimarquez-eng/Mundos-) hecha con tools/actualizar-mundos.sh
-Fecha: 2026-11-26T15:43Z
-Commit: daccd4a33f788ddaeff5c790593381a042e1a7ed
-Rama: ccr-4d137e32-wn50e8
-Último cambio: Circuitos de rally diseñados: trazado, relieve, puentes, vados y entorno con criterio
+Fecha: 2026-11-28T13:14Z
+Commit: f4799ac4dab65368f735426ddaa4d587cba86fe5
+Rama: claude/world-generator-viewer-kk0hn3
+Último cambio: Cielo con fotos 360° de nubes reales
 No edites estos archivos aquí: los cambios se hacen en Mundos- y se vuelven a copiar.

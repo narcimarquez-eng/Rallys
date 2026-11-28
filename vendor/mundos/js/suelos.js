@@ -25,13 +25,18 @@ export const CAPAS = [
   { foto: 'suelo/t02' }, // 12 baldosa / adoquín
   { foto: 'suelo/t03' }, // 13 camino de grava (tierra con grava)
   { foto: 'suelo/t07' }, // 14 camino de tierra (tierra con piedras)
-  { foto: 'suelo/t08' }  // 15 empedrado
+  { foto: 'suelo/t08' }, // 15 empedrado
+  // 16–21: rocas con foto real (assets/rocas/, las mismas que las rocas 3D): paredes, riscos y cumbres
+  { roca: 'granito' }, { roca: 'gris' }, { roca: 'musgo' }, { roca: 'estratos' }, { roca: 'ocre' }, { roca: 'oscura' }
 ];
+// Capas de la mezcla del terreno: 6 texturas RGBA = 24 pesos por punto
+const CAPAS_MEZCLA = 6;
 // Material del suelo (id de Escenario.MATERIALES) → capa
-export const CAPA_MATERIAL = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 7, 9: 8, 10: 9, 11: 10, 12: 11, 13: 12 };
+export const CAPA_MATERIAL = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6, 8: 7, 9: 8, 10: 9, 11: 10, 12: 11, 13: 12, 14: 16, 15: 17, 16: 18, 17: 19, 18: 20, 19: 21 };
 // Tipo de camino → capa y metros que ocupa cada repetición de la textura
 export const CAPA_CAMINO = { tierra: [14, 4], grava: [13, 3.2], asfalto: [6, 3], piedra: [15, 3.5], arena: [4, 4], barro: [7, 4], nieve: [5, 4], adoquin: [12, 2.5] };
 const ESCALA_TERRENO = 4; // m por repetición en el terreno
+const GANANCIA_ROCA = { granito: 1.0, gris: 1.25, musgo: 1.25, estratos: 1.05, ocre: 1.2, oscura: 1.45 };
 
 function cargarImagen(src) {
   return new Promise((ok, mal) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = () => mal(new Error('No se pudo cargar ' + src)); im.src = src; });
@@ -46,6 +51,7 @@ export function cargarSuelos(tam) {
     const atlas = await cargarImagen('assets/terreno/atlas.jpg');
     const fotos = {};
     await Promise.all(CAPAS.filter(c => c.foto).map(async c => { fotos[c.foto] = await cargarImagen('assets/texturas/' + c.foto + '.jpg'); }));
+    await Promise.all(CAPAS.filter(c => c.roca).map(async c => { fotos['roca/' + c.roca] = await cargarImagen('assets/rocas/' + c.roca + '.jpg'); }));
     const cv = document.createElement('canvas'); cv.width = cv.height = tam;
     const ctx = cv.getContext('2d', { willReadFrequently: true });
     const datos = new Uint8Array(tam * tam * 4 * CAPAS.length);
@@ -53,6 +59,12 @@ export function cargarSuelos(tam) {
     CAPAS.forEach((c, i) => {
       ctx.clearRect(0, 0, tam, tam);
       if (c.atlas != null) ctx.drawImage(atlas, (c.atlas % 10) * celda, Math.floor(c.atlas / 10) * celda, celda, celda, 0, 0, tam, tam);
+      else if (c.roca) {
+        // las fotos de roca tienen distinto brillo: se igualan (como en las rocas 3D) para que ninguna salga negra
+        ctx.filter = 'brightness(' + (GANANCIA_ROCA[c.roca] || 1) + ')';
+        ctx.drawImage(fotos['roca/' + c.roca], 0, 0, tam, tam);
+        ctx.filter = 'none';
+      }
       else ctx.drawImage(fotos[c.foto], 0, 0, tam, tam);
       datos.set(ctx.getImageData(0, 0, tam, tam).data, i * tam * tam * 4);
     });
@@ -101,20 +113,20 @@ const GLSL_CAPA = /* glsl */`
 
 // --- Terreno: mapa de mezcla (4 capas RGBA = 16 pesos por punto de la rejilla) ---
 export function crearMezcla(res) {
-  const datos = new Uint8Array(res * res * 4 * 4);
-  const t = new THREE.DataArrayTexture(datos, res, res, 4);
+  const datos = new Uint8Array(res * res * 4 * CAPAS_MEZCLA);
+  const t = new THREE.DataArrayTexture(datos, res, res, CAPAS_MEZCLA);
   t.format = THREE.RGBAFormat; t.type = THREE.UnsignedByteType;
   t.minFilter = t.magFilter = THREE.LinearFilter; t.generateMipmaps = false;
   t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
   t.needsUpdate = true;
   return t;
 }
-// Escribe en la mezcla el material de cada punto de la región (uno de 16 canales a 255)
+// Escribe en la mezcla el material de cada punto de la región (uno de los 24 canales a 255)
 export function actualizarMezcla(mezcla, esc, reg, rango) {
   const r = esc.terreno.res, d = mezcla.image.data, capa = r * r * 4;
   for (let j = reg.j0; j <= reg.j1; j++) for (let i = reg.i0; i <= reg.i1; i++) {
     const k = j * r + i;
-    for (let c = 0; c < 4; c++) { const o = c * capa + k * 4; d[o] = d[o + 1] = d[o + 2] = d[o + 3] = 0; }
+    for (let c = 0; c < CAPAS_MEZCLA; c++) { const o = c * capa + k * 4; d[o] = d[o + 1] = d[o + 2] = d[o + 3] = 0; }
     const ci = CAPA_MATERIAL[E.materialEn(esc, i, j, rango)] ?? 0;
     d[(ci >> 2) * capa + k * 4 + (ci & 3)] = 255;
   }
@@ -127,8 +139,8 @@ export function materialTerreno(suelos, mezcla, esc) {
   m.userData.u = u;
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, u);
-    sh.vertexShader = 'varying vec3 vPosMundo;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vPosMundo = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = `varying vec3 vPosMundo;
+    sh.vertexShader = 'varying vec3 vPosMundo;\nvarying vec3 vNormMundo;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vPosMundo = (modelMatrix * vec4(transformed, 1.0)).xyz;\n vNormMundo = normalize(mat3(modelMatrix) * objectNormal);');
+    sh.fragmentShader = `varying vec3 vPosMundo; varying vec3 vNormMundo;
       uniform highp sampler2DArray uMezcla;
       uniform float uTam, uRes, uEscala;
       ${GLSL_CAPA}
@@ -139,15 +151,29 @@ export function materialTerreno(suelos, mezcla, esc) {
         vec2 ruido = vec2(ruidoSuelo(q * 0.21), ruidoSuelo(q * 0.21 + 17.3)) - 0.5;
         vec2 su = (q + uTam * 0.5) / uTam * (uRes - 1.0) / uRes + 0.5 / uRes + ruido * 1.4 / uRes;
         vec4 w0 = texture(uMezcla, vec3(su, 0.0)), w1 = texture(uMezcla, vec3(su, 1.0)), w2 = texture(uMezcla, vec3(su, 2.0)), w3 = texture(uMezcla, vec3(su, 3.0));
-        float pesos[16] = float[16](w0.r, w0.g, w0.b, w0.a, w1.r, w1.g, w1.b, w1.a, w2.r, w2.g, w2.b, w2.a, w3.r, w3.g, w3.b, w3.a);
+        vec4 w4 = texture(uMezcla, vec3(su, 4.0)), w5 = texture(uMezcla, vec3(su, 5.0));
+        float pesos[24] = float[24](w0.r, w0.g, w0.b, w0.a, w1.r, w1.g, w1.b, w1.a, w2.r, w2.g, w2.b, w2.a, w3.r, w3.g, w3.b, w3.a,
+          w4.r, w4.g, w4.b, w4.a, w5.r, w5.g, w5.b, w5.a);
         vec2 tuv = q / uEscala;
         vec2 tdx = dFdx(tuv), tdy = dFdy(tuv);
         vec3 acc = vec3(0.0); float tot = 0.0;
-        for (int i = 0; i < 16; i++) { float w = pesos[i]; if (w > 0.01) { w = w * w; acc += muestraCapa(float(i), tuv, tdx, tdy) * w; tot += w; } }
+        // Paredes (acantilados, cañones): la textura se proyecta también de lado, así no se estira en vertical
+        vec3 nW = normalize(vNormMundo);
+        float pared = smoothstep(0.45, 0.75, 1.0 - abs(nW.y));
+        vec2 uvX = vPosMundo.zy / uEscala, uvZ = vPosMundo.xy / uEscala;
+        vec2 dxX = dFdx(uvX), dyX = dFdy(uvX), dxZ = dFdx(uvZ), dyZ = dFdy(uvZ);
+        float bx = abs(nW.x), bz = abs(nW.z); float bs = max(1e-4, bx + bz); bx /= bs; bz /= bs;
+        for (int i = 0; i < 24; i++) { float w = pesos[i]; if (w > 0.01) { w = w * w;
+          vec3 c = muestraCapa(float(i), tuv, tdx, tdy);
+          if (pared > 0.01) c = mix(c, muestraCapa(float(i), uvX, dxX, dyX) * bx + muestraCapa(float(i), uvZ, dxZ, dyZ) * bz, pared);
+          acc += c * w; tot += w; } }
         diffuseColor.rgb *= tot > 0.0 ? acc / tot : vec3(0.5);
+        // estratos: franjas horizontales algo onduladas en las paredes
+        float estrato = 0.86 + 0.2 * smoothstep(-0.4, 0.4, sin(vPosMundo.y * 0.55 + ruidoSuelo(q * 0.03) * 5.0)) + 0.06 * sin(vPosMundo.y * 2.1);
+        diffuseColor.rgb *= mix(1.0, estrato, pared);
       }`);
   };
-  m.customProgramCacheKey = () => 'terreno-capas-2';
+  m.customProgramCacheKey = () => 'terreno-capas-4';
   return m;
 }
 

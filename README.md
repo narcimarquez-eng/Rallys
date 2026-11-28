@@ -6,6 +6,10 @@ Juego de rallys en el navegador (JavaScript sin compilar, three.js 0.186.1 por i
 
 ![Salida](docs/capturas/b-asfalto.jpg)
 
+**Cielo**: fotos 360° de nubes reales (día, atardecer y noche, las del Creador de Mundos RPG) que cambian con la hora
+y llevan el sol donde está el de la carrera; vienen de Mundos- (`vendor/mundos/js/cielo-foto.js`). Un escenario con
+`"ambiente": { "cielo": "procedural" }` usa el cielo calculado de antes.
+
 ## Cómo jugar
 Sírvelo por web (GitHub Pages, o `python3 -m http.server` / `npm run servir` en esta carpeta) y abre `index.html`.
 Elige escenario, coche, vueltas y cámara, y **¡A correr!** Sales del elemento «inicio» del escenario tras una cuenta

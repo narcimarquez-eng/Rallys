@@ -93,13 +93,17 @@ export class EntornoAgua {
     this.ultima = null;
   }
   // cieloEscena: el Sky de la escena (se copian sus valores); fondo: color si es de noche
-  actualizar(cieloEscena, fondo, forzar) {
+  // cieloFoto (opcional): el cielo de fotos 360° (CieloFoto); si se da, el reflejo es el de las fotos
+  actualizar(cieloEscena, fondo, forzar, cieloFoto) {
     const u = this.cielo.material.uniforms, v = cieloEscena.material.uniforms;
-    const firma = v.sunPosition.value.toArray().map(x => x.toFixed(2)).join() + (cieloEscena.visible ? 1 : 0);
+    const firma = v.sunPosition.value.toArray().map(x => x.toFixed(2)).join() + (cieloEscena.visible ? 1 : 0)
+      + (cieloFoto ? 'f' + cieloFoto.firma + cieloFoto.uniforms.uPesos.value.toArray().map(x => x.toFixed(2)).join() : '');
     if (!forzar && firma === this.ultima) return this.textura;
     this.ultima = firma;
     for (const k of Object.keys(u)) if (v[k] && v[k].value != null) { if (v[k].value.copy) u[k].value.copy(v[k].value); else u[k].value = v[k].value; }
-    this.cielo.visible = cieloEscena.visible;
+    if (cieloFoto && !this.domo) { this.domo = cieloFoto.copia(); this.escena.add(this.domo); }
+    if (this.domo) this.domo.visible = !!cieloFoto;
+    this.cielo.visible = !cieloFoto && cieloEscena.visible;
     this.escena.background = fondo ? fondo.clone() : null;
     const rt = this.pmrem.fromScene(this.escena, 0, 0.1, 1000);
     if (this.rtViejo) this.rtViejo.dispose();

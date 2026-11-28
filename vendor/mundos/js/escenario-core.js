@@ -114,15 +114,26 @@
     { id: 10, nombre: 'Musgo', color: '#3d5c2b' },
     { id: 11, nombre: 'Ceniza', color: '#34302e' },
     { id: 12, nombre: 'Hielo', color: '#b9d9ea' },
-    { id: 13, nombre: 'Baldosa', color: '#b3a48e' }
+    { id: 13, nombre: 'Baldosa', color: '#b3a48e' },
+    // Rocas con foto real (assets/rocas/, las mismas que las rocas 3D): paredes, riscos y cumbres
+    { id: 14, nombre: 'Granito', color: '#8a8580', piedra: 'granito' },
+    { id: 15, nombre: 'Caliza gris', color: '#a3a19c', piedra: 'gris' },
+    { id: 16, nombre: 'Roca con musgo', color: '#6e7357', piedra: 'musgo' },
+    { id: 17, nombre: 'Roca en estratos', color: '#9a8a76', piedra: 'estratos' },
+    { id: 18, nombre: 'Arenisca ocre', color: '#b48a5e', piedra: 'ocre' },
+    { id: 19, nombre: 'Pizarra oscura', color: '#4d4c4f', piedra: 'oscura' }
   ];
+  // Roca de las paredes, riscos y laderas de roca: material de una piedra
+  const MATERIAL_PIEDRA = { granito: 14, gris: 15, musgo: 16, estratos: 17, ocre: 18, oscura: 19 };
+  const ROCAS_PARED = [['auto', 'Según el bioma'], ['mezcla', 'Mezcla de dos (según el bioma)'], ['granito', 'Granito con líquenes'], ['gris', 'Caliza gris'],
+    ['musgo', 'Roca con musgo'], ['estratos', 'Roca en estratos'], ['ocre', 'Arenisca ocre'], ['oscura', 'Pizarra oscura'], ['roca', 'Roca genérica (la de antes)']];
   const BIOMAS = {
-    templado: { nombre: 'Templado', bajo: 5, medio: 1, alto: 4, cima: 6, empinado: 4, agua: '#2f6f8f' },
-    desierto: { nombre: 'Desierto', bajo: 5, medio: 5, alto: 2, cima: 4, empinado: 4, agua: '#2b8a8f' },
-    tropical: { nombre: 'Tropical', bajo: 5, medio: 1, alto: 10, cima: 4, empinado: 4, agua: '#1f9fa8' },
-    nevado: { nombre: 'Nevado', bajo: 9, medio: 6, alto: 6, cima: 12, empinado: 4, agua: '#3d6f86' },
-    volcanico: { nombre: 'Volcánico', bajo: 11, medio: 11, alto: 4, cima: 11, empinado: 4, agua: '#4a5a62' },
-    otono: { nombre: 'Otoñal', bajo: 3, medio: 2, alto: 4, cima: 6, empinado: 4, agua: '#356b7d' }
+    templado: { nombre: 'Templado', rocas: ['granito', 'gris'],  bajo: 5, medio: 1, alto: 4, cima: 6, empinado: 4, agua: '#2f6f8f' },
+    desierto: { nombre: 'Desierto', rocas: ['ocre', 'estratos'],  bajo: 5, medio: 5, alto: 2, cima: 4, empinado: 4, agua: '#2b8a8f', tintePared: [1.22, 0.86, 0.64] },
+    tropical: { nombre: 'Tropical', rocas: ['musgo', 'oscura'],  bajo: 5, medio: 1, alto: 10, cima: 4, empinado: 4, agua: '#1f9fa8', tintePared: [1.05, 0.92, 0.82] },
+    nevado: { nombre: 'Nevado', rocas: ['gris', 'granito'],  bajo: 9, medio: 6, alto: 6, cima: 12, empinado: 4, agua: '#3d6f86' },
+    volcanico: { nombre: 'Volcánico', rocas: ['oscura', 'gris'],  bajo: 11, medio: 11, alto: 4, cima: 11, empinado: 4, agua: '#4a5a62', tintePared: [0.8, 0.74, 0.7] },
+    otono: { nombre: 'Otoñal', rocas: ['estratos', 'musgo'],  bajo: 3, medio: 2, alto: 4, cima: 6, empinado: 4, agua: '#356b7d' }
   };
 
   // ---------------------------------------------------------------------------
@@ -195,6 +206,11 @@
     props: { radio: 25, cantidad: 30, tamMin: 0.6, tamMax: 4, color: '#7d7a74', forma: 'variada', piedra: 'mezcla', semilla: 1 },
     campos: [NUM('radio', 'Radio', 2, 1000, 1), NUM('cantidad', 'Cantidad', 1, 600, 1), NUM('tamMin', 'Tamaño mínimo', 0.1, 50, 0.1), NUM('tamMax', 'Tamaño máximo', 0.1, 80, 0.1),
       { k: 'forma', n: 'Formas', t: 'sel', op: FORMAS_ROCA }, { k: 'piedra', n: 'Piedra', t: 'sel', op: PIEDRAS }, COLOR('color', 'Tinte'), NUM('semilla', 'Semilla', 1, 99999, 1)] });
+  registrarTipo({ id: 'riscos', nombre: 'Riscos (área)', icono: '🪨', grupo: 'naturaleza', forma: 'area', radioDefecto: 60,
+    props: { radio: 60, cantidad: 12, altoMin: 6, altoMax: 22, piedra: 'auto', pendiente: true, semilla: 1 },
+    campos: [NUM('radio', 'Radio', 5, 2000, 1), NUM('cantidad', 'Riscos', 1, 200, 1), NUM('altoMin', 'Altura mínima (m)', 1, 120, 0.5), NUM('altoMax', 'Altura máxima (m)', 1, 160, 0.5),
+      { k: 'piedra', n: 'Piedra', t: 'sel', op: [['auto', 'La de las paredes del terreno']].concat(PIEDRAS.filter(q => q[0] !== 'mezcla')).concat([['mezcla', 'Mezcla']]) },
+      { k: 'pendiente', n: 'En las laderas empinadas y cumbres', t: 'bool' }, NUM('semilla', 'Semilla', 1, 99999, 1)] });
   registrarTipo({ id: 'lago', nombre: 'Lago (área)', icono: '💧', grupo: 'naturaleza', forma: 'area', radioDefecto: 30,
     props: { radio: 30, nivel: 0, color: '#2f6f8f', excavar: true, forma: 1 },
     campos: [NUM('radio', 'Radio', 3, 2000, 1), NUM('nivel', 'Altura del agua (sobre el suelo del centro)', -20, 20, 0.1), COLOR('color', 'Color del agua'),
@@ -299,7 +315,7 @@
         agua: { activa: false, nivel: 0, color: null },
         bordes: 'cortado' // 'cortado' (se ve el borde) o 'infinito' (suelo que se extiende)
       },
-      ambiente: { hora: 13, niebla: 0.35, nubes: 0.4, cielo: 'auto' },
+      ambiente: { hora: 13, niebla: 0.35, nubes: 0.4, cielo: 'foto' },   // cielo: 'foto' (fotos 360°) o 'procedural'
       caminos: [],
       elementos: [],
       enlaces: { rpgBase: RPG_BASE },
@@ -355,17 +371,36 @@
     const t = esc.terreno, b = BIOMAS[t.bioma] || BIOMAS.templado;
     const h = t.alturas[j * t.res + i];
     const s = pendienteIdx(esc, i, j);
-    if (s > 0.85) return b.empinado;
+    if (s > 0.85) return rocaPared(esc, i, j, b.empinado);
     const agua = t.agua && t.agua.activa ? t.agua.nivel : -Infinity;
     if (h < agua + 1.2) return b.bajo;
     const r = rango || rangoAlturas(esc);
     const base = Math.max(r.min, agua === -Infinity ? r.min : agua);
     const span = Math.max(1, r.max - base);
     const rel = (h - base) / span;
-    if (t.cotaNieve != null ? h > t.cotaNieve : (rel > 0.82 && r.max - base > 40)) return b.cima; // cotaNieve: altura fija (opcional)
-    if (rel > 0.6 && s > 0.45) return b.alto;
+    if (t.cotaNieve != null ? h > t.cotaNieve : (rel > 0.82 && r.max - base > 40)) return b.cima === 4 ? rocaPared(esc, i, j, 4) : b.cima; // cotaNieve: altura fija (opcional)
+    if (rel > 0.6 && s > 0.45) return b.alto === 4 ? rocaPared(esc, i, j, 4) : b.alto;
     return b.medio;
   }
+  // Piedra de las paredes en (i, j) según terreno.rocaPared: 'auto' (la del bioma), 'mezcla' (dos del bioma por manchas
+  // de ~150 m), una piedra concreta o 'roca' (la genérica de antes, material 4)
+  const ruidoRocas = new Map();
+  function piedraPared(esc, x, z) {
+    const t = esc.terreno, b = BIOMAS[t.bioma] || BIOMAS.templado, modo = t.rocaPared || 'auto';
+    if (modo === 'roca') return null;
+    if (MATERIAL_PIEDRA[modo]) return modo;
+    const par = b.rocas || ['granito', 'gris'];
+    if (modo !== 'mezcla') return par[0];
+    const sem = (t.gen && t.gen.semilla) || 1;
+    let N = ruidoRocas.get(sem);
+    if (!N) { N = crearRuido(sem * 131 + 7); ruidoRocas.set(sem, N); }
+    return N.fbm(x / 150, z / 150, 2) > 0.05 ? par[1] : par[0];
+  }
+  function rocaPared(esc, i, j, porDefecto) {
+    const pd = piedraPared(esc, xDe(esc, i), xDe(esc, j));
+    return pd ? MATERIAL_PIEDRA[pd] : porDefecto;
+  }
+
   function materialEn(esc, i, j, rango) {
     const m = esc.terreno.materiales[j * esc.terreno.res + i];
     return m || materialAuto(esc, i, j, rango);
@@ -373,7 +408,98 @@
 
   // Genera las alturas a partir de los parámetros de esc.terreno.gen
   const TIPOS_TERRENO = [['plano', 'Plano'], ['colinas', 'Colinas'], ['montanas', 'Montañas'], ['isla', 'Isla'], ['archipielago', 'Archipiélago'],
-    ['valle', 'Valle'], ['dunas', 'Dunas'], ['mesetas', 'Mesetas (escalones)'], ['canon', 'Cañón'], ['crater', 'Cráter / volcán']];
+    ['valle', 'Valle'], ['dunas', 'Dunas'], ['mesetas', 'Mesetas (escalones)'], ['canon', 'Cañón'], ['crater', 'Cráter / volcán'],
+    ['canones', 'Cañones con repisas'], ['desfiladero', 'Desfiladeros entre montañas'], ['mesas', 'Mesas y agujas de roca'],
+    ['acantilados', 'Costa de acantilados'], ['tepuis', 'Tepuis (mesetas gigantes)']];
+
+  // ---------------------------------------------------------------------------
+  // Relieve llamativo: cañones, desfiladeros, mesas, agujas, acantilados. Todo se mide en metros: el borde de una
+  // forma es la curva donde un ruido vale un umbral, y la distancia a ella sale del valor y del gradiente del ruido,
+  // así las paredes quedan verticales (unos pocos metros) sea cual sea la escala.
+  // ---------------------------------------------------------------------------
+  const suaveEntre = (a, b, x) => suave(clamp((x - a) / (b - a), 0, 1));
+  function hash2(sem, i, j) {
+    let h = (sem ^ Math.imul(i, 0x27D4EB2D) ^ Math.imul(j, 0x165667B1)) >>> 0;
+    h = Math.imul(h ^ (h >>> 15), 0x85EBCA6B); h = Math.imul(h ^ (h >>> 13), 0xC2B2AE35);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+  // Distancia (m) con signo a la curva f = umbral; positiva donde f > umbral
+  function distanciaCurva(f, x, z, umbral) {
+    const e = 2, v = f(x, z) - (umbral || 0);
+    const gx = (f(x + e, z) - f(x - e, z)) / (2 * e), gz = (f(x, z + e) - f(x, z - e)) / (2 * e);
+    return v / Math.max(1e-7, Math.hypot(gx, gz));
+  }
+  // Perfil de una pared en escalones: 0 en el fondo (t <= 0) y 1 arriba (t >= 1), con `n` repisas planas
+  function perfilEscalones(t, n) {
+    if (t <= 0) return 0; if (t >= 1) return 1;
+    let s = 0;
+    for (let k = 0; k < n; k++) { const c = (k + 0.5) / n; s += suaveEntre(c - 0.18 / n, c + 0.18 / n, t) / n; }
+    return s;
+  }
+  // Cañón: cauce = ceros de un ruido deformado. Devuelve metros a restar (0..1 de profundidad) en (x, z)
+  function crearCanones(N, escala, opts) {
+    const o = Object.assign({ ancho: 60, repisas: 3, sinuoso: 0.35 }, opts || {});
+    const campo = (x, z) => {
+      const wx = x + N.ruido(x / (escala * 0.6) + 5.2, z / (escala * 0.6) - 1.3) * escala * o.sinuoso;
+      const wz = z + N.ruido(x / (escala * 0.6) - 7.7, z / (escala * 0.6) + 3.1) * escala * o.sinuoso;
+      return N.fbm(wx / escala, wz / escala, 2);
+    };
+    return function profundidad(x, z) {
+      const v = campo(x, z);
+      if (Math.abs(v) > 0.25) return 0;
+      const d = Math.abs(distanciaCurva(campo, x, z, 0));
+      const ancho = o.ancho * (0.75 + 0.5 * (N.ruido(x / (escala * 0.5) + 11, z / (escala * 0.5) - 4) * 0.5 + 0.5));
+      if (d >= ancho) return 0;
+      const t = d / ancho;
+      return 1 - perfilEscalones((t - 0.12) / 0.88, o.repisas);   // fondo plano en el 12 % central
+    };
+  }
+  // Mesas: terrazas de paredes verticales donde un ruido supera varios umbrales (devuelve 0..1, nº de pisos)
+  function crearMesas(N, escala, pisos, umbral0) {
+    const campo = (x, z) => N.fbm(x / escala + 31.7, z / escala - 12.9, 3);
+    return function altura(x, z) {
+      const v = campo(x, z);
+      if (v < umbral0 - 0.05) return 0;
+      const e = 2;
+      const g = Math.max(1e-7, Math.hypot((campo(x + e, z) - campo(x - e, z)) / (2 * e), (campo(x, z + e) - campo(x, z - e)) / (2 * e)));
+      let s = 0;
+      for (let k = 0; k < pisos; k++) {
+        const d = (v - (umbral0 + k * 0.13)) / g;           // metros hacia dentro del piso k
+        s += 0.88 * suaveEntre(-2.5, 2.5, d) + 0.12 * suaveEntre(-30, -2, d);   // pared y talud de derrubios
+      }
+      return s / pisos;
+    };
+  }
+  // Agujas de roca: columnas sueltas, como mucho una por celda. Devuelve la altura de la aguja (m) en (x, z)
+  function crearAgujas(semilla, celda, prob, radio, alto) {
+    return function aguja(x, z, peso) {
+      const i = Math.floor(x / celda), j = Math.floor(z / celda);
+      if (hash2(semilla, i, j) > prob * (peso == null ? 1 : peso)) return 0;
+      const r = radio * (0.7 + 0.6 * hash2(semilla + 1, i, j));
+      const px = (i + 0.2 + 0.6 * hash2(semilla + 2, i, j)) * celda, pz = (j + 0.2 + 0.6 * hash2(semilla + 3, i, j)) * celda;
+      const d = Math.hypot(x - px, z - pz);
+      if (d > r * 2.2) return 0;
+      const H = alto * (0.6 + 0.8 * hash2(semilla + 4, i, j));
+      return H * (0.86 * (1 - suaveEntre(r * 0.8, r, d)) + 0.14 * (1 - suaveEntre(r, r * 2.2, d)));
+    };
+  }
+
+  function formasRelieve(g, N, H, m) {
+    const E = Math.max(10, g.escala || 300), sem = ((g.semilla || 1) * 2654435761) >>> 0;
+    const cosas = {
+      canon: crearCanones(N, E * 1.1, { ancho: clamp(E * 0.16, 18, 220), repisas: 3 }),
+      garganta: crearCanones(N, E * 1.3, { ancho: clamp(E * 0.05, 8, 60), repisas: 1, sinuoso: 0.5 }),
+      mesa: crearMesas(N, E * 0.55, 3, 0.05),
+      tepui: crearMesas(N, E * 0.9, 1, 0.12),
+      aguja: crearAgujas(sem, clamp(E * 0.3, 40, 400), 0.3, clamp(E * 0.025, 5, 30), H * 0.55),
+      farallon: crearAgujas(sem + 7, clamp(E * 0.2, 30, 300), 0.35, clamp(E * 0.02, 5, 22), H * 0.9)
+    };
+    cosas.costa = (x, z) => {
+      const esc1 = 1 / E, f = (a, b) => N.fbm(a * esc1 * 0.8 + 3.3, b * esc1 * 0.8 - 7.1, clamp(g.octavas || 5, 1, 8)) + 0.12 - Math.pow(Math.hypot(a, b) / m, 3) * 0.55;
+      return distanciaCurva(f, x, z, 0);
+    };
+    return cosas;
+  }
 
   function generarTerreno(esc, gen) {
     const t = esc.terreno;
@@ -382,6 +508,7 @@
     const N = crearRuido((g.semilla || 1) * 7919 + 13);
     const esc1 = 1 / Math.max(10, g.escala || 300);
     const H = g.altura == null ? 40 : g.altura, oct = clamp(g.octavas || 5, 1, 8), base = g.base || 0;
+    const formas = formasRelieve(g, N, H, m);
     for (let j = 0; j < r; j++) {
       for (let i = 0; i < r; i++) {
         const x = -m + i * t.tam / (r - 1), z = -m + j * t.tam / (r - 1);
@@ -398,13 +525,83 @@
           case 'dunas': { const w = N.fbm(nx * 0.6, nz * 0.6, 2) * 3; h = (Math.abs(Math.sin(nx * 9 + w + nz * 2.5)) * 0.55 + N.fbm(nx * 1.5, nz * 1.5, oct) * 0.45) * H * 0.5; break; }
           case 'mesetas': { const f = (N.fbm(nx, nz, oct) * 0.5 + 0.5) * H; const st = Math.max(2, H / 6); const k = Math.floor(f / st); const fr = (f - k * st) / st; h = (k + suave(clamp((fr - 0.75) * 4, 0, 1))) * st; break; }
           case 'canon': { const c = 1 - Math.abs(N.fbm(nx * 0.8, nz * 0.8, 3)); const v = Math.pow(c, 10); h = (1 - v) * H + N.fbm(nx * 4, nz * 4, 3) * H * 0.04; break; }
+          case 'canones': {
+            // Altiplano suave cortado por una red de cañones con repisas, y alguna aguja en el fondo
+            const alti = (0.82 + N.fbm(nx * 0.7, nz * 0.7, oct) * 0.18) * H;
+            const p = formas.canon(x, z);
+            h = alti - p * Math.min(H * 0.85, alti - H * 0.04) + formas.aguja(x, z, p > 0.92 ? 1 : 0) + N.fbm(nx * 6, nz * 6, 2) * H * 0.012;
+            break;
+          }
+          case 'desfiladero': {
+            // Montañas de crestas con gargantas estrechas y verticales que las atraviesan
+            const c = N.crestas(nx, nz, oct);
+            const monte = (0.35 + Math.pow(c, 1.4) * 0.65) * H;
+            const p = formas.garganta(x, z);
+            h = monte - p * Math.max(0, monte - H * 0.08);
+            break;
+          }
+          case 'mesas': {
+            const llano = (N.fbm(nx * 1.3, nz * 1.3, oct) * 0.5 + 0.5) * H * 0.12;
+            h = llano + formas.mesa(x, z) * H + formas.aguja(x, z, 1);
+            break;
+          }
+          case 'tepuis': {
+            const llano = (N.fbm(nx, nz, oct) * 0.5 + 0.5) * H * 0.1;
+            const t = formas.tepui(x, z);
+            h = llano + t * H + (t > 0.98 ? N.fbm(nx * 5, nz * 5, 3) * H * 0.03 : 0);
+            break;
+          }
+          case 'acantilados': {
+            // Tierra que cae en vertical al mar (nivel 0): la costa es la curva c = 0 de un ruido
+            const c = N.fbm(nx * 0.8 + 3.3, nz * 0.8 - 7.1, oct) + 0.12 - Math.pow(d, 3) * 0.55;
+            if (c > -0.03) {
+              const dm = formas.costa(x, z);                // metros tierra adentro desde el borde
+              const alto = H * (0.55 + 0.45 * (N.ruido(nx * 1.7 + 9, nz * 1.7) * 0.5 + 0.5));
+              const tierra = alto * (0.9 * suaveEntre(-1.5, 2.5, dm) + 0.1 * suaveEntre(-12, 0, dm)) + Math.max(0, c) * H * 0.6;
+              h = dm < -12 ? -H * 0.12 : tierra - (1 - suaveEntre(-12, -1.5, dm)) * H * 0.12;
+            } else h = -H * 0.12 + c * H * 0.3;
+            h += formas.farallon(x, z, c < 0 ? suaveEntre(-0.14, -0.04, c) : 0);   // farallones solo cerca de la costa
+            break;
+          }
           case 'crater': { const anillo = Math.exp(-Math.pow((d - 0.18) / 0.09, 2)); const cono = Math.max(0, 1 - d * 1.6); h = (cono * 0.75 + anillo * 0.35 - (d < 0.18 ? (0.18 - d) * 2.4 : 0)) * H + N.fbm(nx * 2, nz * 2, oct) * H * 0.08; break; }
           default: h = 0;
         }
         t.alturas[j * r + i] = h + base;
       }
     }
+    if (g.riscos > 0) ponerRiscos(esc, N, g.riscos);
     return esc;
+  }
+
+  // Riscos en las laderas altas y empinadas: bandas de roca con paredes verticales (escalones de la ladera) y
+  // peñascos que asoman. riscos: 0–1. Solo donde ya hay pendiente y altura, así los valles y llanos no cambian.
+  function ponerRiscos(esc, N, fuerza) {
+    const t = esc.terreno, r = t.res, h = t.alturas, p = paso(esc), m = t.tam / 2;
+    const orig = h.slice();
+    const rg = rangoAlturas(esc), agua = t.agua && t.agua.activa ? t.agua.nivel : rg.min;
+    const span = Math.max(1, rg.max - Math.max(rg.min, agua));
+    const escalon = clamp(span * 0.06, 4, 30);                // alto de cada banda de roca
+    const L = clamp(escalon * 3, 12, 90);                      // tamaño de los peñascos
+    for (let j = 1; j < r - 1; j++) for (let i = 1; i < r - 1; i++) {
+      const k = j * r + i, h0 = orig[k];
+      const dx = (orig[k + 1] - orig[k - 1]) / (2 * p), dz = (orig[k + r] - orig[k - r]) / (2 * p);
+      const s = Math.hypot(dx, dz);
+      const rel = (h0 - Math.max(rg.min, agua)) / span;
+      const x = -m + i * p, z = -m + j * p;
+      // dónde hay riscos: laderas de más de ~25° en la mitad alta, con manchas para que no sea todo igual
+      const mancha = suaveEntre(-0.15, 0.2, N.fbm(x / (L * 6) + 40.3, z / (L * 6) - 17.1, 2));
+      const w = fuerza * suaveEntre(0.35, 0.75, s) * suaveEntre(0.25, 0.55, rel) * mancha;
+      if (w <= 0.001) continue;
+      // escalones: la ladera se rompe en rellanos y paredes (desplazados con ruido para que no sean curvas de nivel)
+      const hd = h0 + N.ruido(x / (L * 1.7) + 7.7, z / (L * 1.7)) * escalon * 0.6;
+      const kk = Math.floor(hd / escalon), fr = hd / escalon - kk;
+      const escal = (kk + suaveEntre(0.68, 0.9, fr)) * escalon - (hd - h0);
+      // peñascos: crestas de un ruido que asoman como bloques de borde vivo
+      const c = 1 - Math.abs(N.ruido(x / L - 3.1, z / L + 9.4));
+      const pena = suaveEntre(0.78, 0.86, c) * escalon * 0.9 + suaveEntre(0.9, 0.97, c) * escalon * 0.6;
+      h[k] = lerp(h0, escal, Math.min(1, w * 1.2)) + pena * w;
+    }
+    olvidarRango(esc);
   }
 
   // ---------------------------------------------------------------------------
@@ -416,7 +613,9 @@
   }
   function caida(d, radio) { if (d >= radio) return 0; return 0.5 * (Math.cos(Math.PI * d / radio) + 1); }
 
-  // op: { modo: 'subir'|'bajar'|'suavizar'|'aplanar'|'ruido'|'nivel', x, z, radio, fuerza (m por aplicación o 0–1), objetivo }
+  // op: { modo: 'subir'|'bajar'|'suavizar'|'aplanar'|'ruido'|'nivel'|'meseta'|'canon'|'terrazas', x, z, radio,
+  //       fuerza (m por aplicación o 0–1), objetivo (altura donde empieza el trazo), alto (m de la meseta o del cañón),
+  //       repisas (escalones de las paredes del cañón), escalon (m de cada terraza) }
   function esculpir(esc, op) {
     const t = esc.terreno, r = t.res, h = t.alturas, p = paso(esc);
     const reg = regionPincel(esc, op.x, op.z, op.radio);
@@ -444,6 +643,30 @@
           }
           case 'aplanar': case 'nivel': h[k] = lerp(h[k], op.objetivo, clamp(f0, 0, 1) * w); break;
           case 'ruido': h[k] += N.ruido(x * 0.08, z * 0.08) * f0 * w; break;
+          case 'meseta': {
+            // Sube hasta objetivo + alto con una pared vertical en el borde del pincel
+            const d = Math.hypot(x - op.x, z - op.z), borde = Math.max(p * 1.2, op.radio * 0.12);
+            const meta = op.objetivo + (op.alto == null ? 15 : op.alto);
+            const pared = 1 - suaveEntre(op.radio - borde, op.radio, d);
+            if (meta > h[k]) h[k] = lerp(h[k], meta, pared * clamp(f0 * 3, 0, 1));
+            break;
+          }
+          case 'canon': {
+            // Excava hasta objetivo − profundidad, con fondo plano y paredes en escalones
+            const d = Math.hypot(x - op.x, z - op.z);
+            const prof = op.alto == null ? 15 : op.alto;
+            const t = d / op.radio;
+            const fondo = op.objetivo - prof * (1 - perfilEscalones((t - 0.3) / 0.7, op.repisas || 2));
+            if (fondo < h[k]) h[k] = lerp(h[k], fondo, clamp(f0 * 3, 0, 1));
+            break;
+          }
+          case 'terrazas': {
+            const st = Math.max(0.5, op.escalon || 6);
+            const kk = Math.floor(h[k] / st), fr = h[k] / st - kk;
+            const meta = (kk + suaveEntre(0.72, 0.95, fr)) * st;
+            h[k] = lerp(h[k], meta, clamp(f0, 0, 1) * w);
+            break;
+          }
         }
       }
     }
@@ -1672,7 +1895,9 @@
   registrarPlantilla({ id: 'montanas', nombre: 'Cordillera', icono: '🏔', desc: 'Montañas escarpadas con cumbres nevadas y un valle.', tam: 4096, bioma: 'templado',
     aplicar(esc, rng) {
       esc.terreno.agua = { activa: true, nivel: 8, color: null };
-      generarTerreno(esc, { tipo: 'montanas', escala: 1100, altura: 420, octavas: 7 });
+      esc.terreno.rocaPared = 'mezcla';
+      generarTerreno(esc, { tipo: 'montanas', escala: 1100, altura: 420, octavas: 7, riscos: 0.8 });
+      ponerRiscosEnCumbres(esc, rng, 10, 160, 10, 45);
       for (let k = 0; k < 18; k++) { const s = buscarSitio(esc, rng, (x, z) => { const h = alturaEn(esc, x, z); return h > 12 && h < 150; }); if (s) crearElemento(esc, 'bosque', s.x, s.z, { radio: rng.int(60, 160), especie: rng.pick(['pinsapo', 'pino_pinonero']), densidad: rng.range(1.5, 4) }); }
     } });
 
@@ -1690,12 +1915,78 @@
       generarTerreno(esc, { tipo: 'crater', escala: 300, altura: 260, octavas: 5 });
     } });
 
+  // Relieve llamativo: cañones, acantilados, desfiladeros, mesas y tepuis. Piden detalle alto (513², resMin) para que
+  // las paredes queden verticales: con menos puntos serían laderas. El diálogo «Nuevo» lo propone al elegirlas.
+  // Áreas de riscos en las laderas altas y empinadas (los peñascos 3D eligen dentro los sitios más empinados)
+  function ponerRiscosEnCumbres(esc, rng, n, radio, altoMin, altoMax) {
+    const r = rangoAlturas(esc), corte = r.min + (r.max - r.min) * 0.5;
+    const puestos = [];
+    for (let k = 0; k < n; k++) {
+      const s = buscarSitio(esc, rng, (x, z) => alturaEn(esc, x, z) > corte && sobreAgua(esc, x, z, 3)
+        && puestos.every(p => Math.hypot(p.x - x, p.z - z) > radio * 1.5), 400);
+      if (!s) continue;
+      puestos.push(s);
+      crearElemento(esc, 'riscos', s.x, s.z, { radio, cantidad: Math.round(radio / 12), altoMin, altoMax, piedra: 'auto', pendiente: true, semilla: rng.int(1, 99999) });
+    }
+  }
+  function bosquesDonde(esc, rng, n, filtro, props) {
+    for (let k = 0; k < n; k++) { const s = buscarSitio(esc, rng, filtro, 300); if (s) crearElemento(esc, 'bosque', s.x, s.z, props(rng)); }
+  }
+  function llano(esc, x, z, r) {
+    const h0 = alturaEn(esc, x, z);
+    return [[r, 0], [-r, 0], [0, r], [0, -r]].every(([a, b]) => Math.abs(alturaEn(esc, x + a, z + b) - h0) < r * 0.25);
+  }
+  registrarPlantilla({ id: 'gran_canon', nombre: 'Gran Cañón', icono: '🏜', resMin: 513, tam: 2048, bioma: 'desierto',
+    desc: 'Altiplano desértico cortado por cañones de paredes en escalones, con agujas de roca en el fondo.',
+    aplicar(esc, rng) {
+      esc.terreno.cotaNieve = 100000;   // las cimas son del mismo suelo que el llano (no roca ni nieve)
+      generarTerreno(esc, { tipo: 'canones', escala: 650, altura: 120, octavas: 5 });
+      const r = rangoAlturas(esc);
+      bosquesDonde(esc, rng, 10, (x, z) => alturaEn(esc, x, z) > r.max - 30 && llano(esc, x, z, 20), g => ({ radio: g.int(30, 70), especie: 'cactus', densidad: 0.5, rocas: 0.5 }));
+      bosquesDonde(esc, rng, 6, (x, z) => alturaEn(esc, x, z) < r.min + 15 && llano(esc, x, z, 10), g => ({ radio: g.int(15, 30), especie: 'palmera_datilera', densidad: 1.2 }));
+      const v = buscarSitio(esc, rng, (x, z) => alturaEn(esc, x, z) > r.max - 25 && llano(esc, x, z, 15), 400);
+      if (v) crearElemento(esc, 'camara', v.x, v.z, {});
+    } });
+  registrarPlantilla({ id: 'costa_acantilados', nombre: 'Costa de acantilados', icono: '🌊', resMin: 513, tam: 2048, bioma: 'templado',
+    desc: 'Tierra que cae en vertical al mar, calas al pie de las paredes y farallones de roca en el agua.',
+    aplicar(esc, rng) {
+      esc.terreno.agua = { activa: true, nivel: 0, color: null };
+      generarTerreno(esc, { tipo: 'acantilados', escala: 520, altura: 70, octavas: 5 });
+      bosquesDonde(esc, rng, 14, (x, z) => alturaEn(esc, x, z) > 30 && llano(esc, x, z, 25), g => ({ radio: g.int(40, 110), especie: g.pick(['pino_pinonero', 'pinsapo']), densidad: g.range(1.2, 3) }));
+      const v = buscarSitio(esc, rng, (x, z) => { const h = alturaEn(esc, x, z); return h > 25 && [[30, 0], [-30, 0], [0, 30], [0, -30]].some(([a, b]) => alturaEn(esc, x + a, z + b) < 0); }, 2000);
+      if (v) crearElemento(esc, 'camara', v.x, v.z, {});
+    } });
+  registrarPlantilla({ id: 'desfiladeros', nombre: 'Desfiladeros', icono: '⛰', resMin: 513, tam: 2048, bioma: 'templado',
+    desc: 'Montañas con crestas cortadas por gargantas estrechas y profundas de paredes verticales.',
+    aplicar(esc, rng) {
+      esc.terreno.rocaPared = 'mezcla';
+      generarTerreno(esc, { tipo: 'desfiladero', escala: 700, altura: 240, octavas: 6, riscos: 0.7 });
+      ponerRiscosEnCumbres(esc, rng, 8, 90, 6, 26);
+      const r = rangoAlturas(esc);
+      bosquesDonde(esc, rng, 16, (x, z) => alturaEn(esc, x, z) < r.min + (r.max - r.min) * 0.45 && llano(esc, x, z, 20), g => ({ radio: g.int(40, 120), especie: g.pick(['pinsapo', 'liquidambar']), densidad: g.range(1.5, 3.5) }));
+    } });
+  registrarPlantilla({ id: 'valle_mesas', nombre: 'Valle de las mesas', icono: '🗿', resMin: 513, tam: 2048, bioma: 'desierto',
+    desc: 'Llanura roja con mesas de paredes verticales en terrazas y agujas de roca sueltas.',
+    aplicar(esc, rng) {
+      esc.terreno.cotaNieve = 100000;   // las cimas son del mismo suelo que el llano (no roca ni nieve)
+      generarTerreno(esc, { tipo: 'mesas', escala: 600, altura: 70, octavas: 5 });
+      bosquesDonde(esc, rng, 12, (x, z) => alturaEn(esc, x, z) < 12 && llano(esc, x, z, 15), g => ({ radio: g.int(30, 80), especie: 'cactus', densidad: 0.5, rocas: 0.6 }));
+    } });
+  registrarPlantilla({ id: 'tepuis', nombre: 'Tepuis', icono: '🗻', resMin: 513, tam: 4096, bioma: 'tropical',
+    desc: 'Selva con mesetas gigantes de paredes verticales de cientos de metros.',
+    aplicar(esc, rng) {
+      esc.terreno.cotaNieve = 100000;   // las cimas son del mismo suelo que el llano (no roca ni nieve)
+      generarTerreno(esc, { tipo: 'tepuis', escala: 1200, altura: 320, octavas: 5 });
+      bosquesDonde(esc, rng, 24, (x, z) => alturaEn(esc, x, z) < 40 && llano(esc, x, z, 25), g => ({ radio: g.int(60, 160), especie: 'palmera_datilera', densidad: g.range(1.5, 3.5) }));
+    } });
+
   // Crea un escenario a partir de una plantilla
   function crear(opts) {
     opts = opts || {};
     const pl = PLANTILLAS[opts.plantilla || 'vacio'] || PLANTILLAS.vacio;
     const semilla = opts.semilla || Math.floor(Math.random() * 99999) + 1;
-    const esc = crearVacio(Object.assign({}, opts, { semilla, tam: opts.tam || pl.tam || 1024, bioma: opts.bioma || pl.bioma || 'templado', plantilla: pl.id }));
+    const res = opts.res || pl.resMin;   // pl.resMin: detalle que la plantilla pide si no se elige otro
+    const esc = crearVacio(Object.assign({}, opts, { res, semilla, tam: opts.tam || pl.tam || 1024, bioma: opts.bioma || pl.bioma || 'templado', plantilla: pl.id }));
     esc.terreno.gen.semilla = semilla;
     pl.aplicar(esc, crearAzar(semilla * 31 + 7));
     if (opts.nombre) esc.nombre = opts.nombre; else esc.nombre = pl.disenado ? pl.nombre : pl.nombre + ' ' + semilla; // los diseñados no dependen de la semilla
@@ -1769,7 +2060,7 @@
   }
 
   const API = {
-    FORMATO, VERSION, RPG_BASE, MATERIALES, BIOMAS, TIPOS, GRUPOS, PLANTILLAS, TIPOS_TERRENO, TIPOS_CAMINO, ESPECIES, ESTILOS_PUEBLO, ARBOLES_GLB, MEZCLA_BIOMA, registrarArbolGlb,
+    FORMATO, VERSION, RPG_BASE, MATERIALES, MATERIAL_PIEDRA, ROCAS_PARED, piedraPared, BIOMAS, TIPOS, GRUPOS, PLANTILLAS, TIPOS_TERRENO, TIPOS_CAMINO, ESPECIES, ESTILOS_PUEBLO, ARBOLES_GLB, MEZCLA_BIOMA, registrarArbolGlb,
     mulberry32, crearAzar, crearRuido, hashTexto, clamp, lerp,
     registrarTipo, registrarPlantilla, leerRuta, escribirRuta, cfgPuebloPorDefecto, radioPueblo,
     crearVacio, crear, generarTerreno, paso, idx, xDe, aRejilla, dentro, alturaEn, sueloEn, pendienteIdx, rangoAlturas, rangoCache, olvidarRango,

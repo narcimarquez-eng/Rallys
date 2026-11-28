@@ -5,9 +5,9 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
-export const FORMAS_ROCA = [['variada', 'Variadas'], ['canto', 'Canto rodado'], ['losa', 'Losa'], ['bloque', 'Bloque fracturado'], ['aguja', 'Aguja'], ['partida', 'Roca partida']];
+export const FORMAS_ROCA = [['variada', 'Variadas'], ['canto', 'Canto rodado'], ['losa', 'Losa'], ['bloque', 'Bloque fracturado'], ['aguja', 'Aguja'], ['partida', 'Roca partida'], ['risco', 'Risco (columna de caras planas)']];
 export const PIEDRAS = [['mezcla', 'Mezcla'], ['granito', 'Granito con líquenes'], ['gris', 'Caliza gris'], ['musgo', 'Con musgo'], ['estratos', 'En estratos'], ['ocre', 'Arenisca ocre'], ['oscura', 'Pizarra oscura']];
-const FORMAS = ['canto', 'losa', 'bloque', 'aguja', 'partida'];
+const FORMAS = ['canto', 'losa', 'bloque', 'aguja', 'partida', 'risco'];
 // las fotos tienen distinto brillo medio (luminancia lineal 0,10–0,28): se igualan para que ninguna salga negra
 const GANANCIA = { granito: 0.95, gris: 1.35, musgo: 1.35, estratos: 1.0, ocre: 1.3, oscura: 1.6 };
 
@@ -39,15 +39,18 @@ export function geoRocaForma(forma, variante) {
   g.deleteAttribute('normal'); g.deleteAttribute('uv');
   g = mergeVertices(g);
   const p = g.attributes.position;
-  const esc = { canto: [1, 0.72, 0.86], losa: [1.35, 0.32, 1.0], bloque: [1, 0.9, 0.85], aguja: [0.5, 1.9, 0.55], partida: [1.05, 0.8, 0.9] }[forma];
-  const amp = { canto: 0.12, losa: 0.08, bloque: 0.16, aguja: 0.14, partida: 0.12 }[forma];
+  const esc = { canto: [1, 0.72, 0.86], losa: [1.35, 0.32, 1.0], bloque: [1, 0.9, 0.85], aguja: [0.5, 1.9, 0.55], partida: [1.05, 0.8, 0.9], risco: [0.62, 2.1, 0.55] }[forma];
+  const amp = { canto: 0.12, losa: 0.08, bloque: 0.16, aguja: 0.14, partida: 0.12, risco: 0.07 }[forma];
   // planos de fractura: caras planas como de roca rota (los cantos rodados casi no tienen)
-  const nPlanos = { canto: 1, losa: 4, bloque: 7, aguja: 5, partida: 4 }[forma];
+  const nPlanos = { canto: 1, losa: 4, bloque: 7, aguja: 5, partida: 4, risco: 13 }[forma];
   const planos = [];
   for (let k = 0; k < nPlanos; k++) {
-    const t = azar() * Math.PI * 2, f = Math.acos(azar() * 1.6 - 0.6);
+    const t = azar() * Math.PI * 2;
+    // risco: caras casi verticales (columna de roca rota) y dos o tres cortes inclinados arriba
+    const f = forma === 'risco' ? (k < 10 ? Math.PI / 2 + (azar() - 0.5) * 0.35 : 0.35 + azar() * 0.6) : Math.acos(azar() * 1.6 - 0.6);
     const n = new THREE.Vector3(Math.sin(f) * Math.cos(t), Math.cos(f), Math.sin(f) * Math.sin(t));
-    planos.push({ n, d: forma === 'canto' ? 0.85 : 0.55 + azar() * 0.3, dureza: forma === 'canto' ? 0.5 : 0.92 });
+    const d = forma === 'canto' ? 0.85 : forma === 'risco' ? (k < 10 ? 0.5 + azar() * 0.25 : 0.62 + azar() * 0.2) : 0.55 + azar() * 0.3;
+    planos.push({ n, d, dureza: forma === 'canto' ? 0.5 : forma === 'risco' ? 1 : 0.92 });
   }
   const v = new THREE.Vector3();
   const grieta = forma === 'partida' ? new THREE.Vector3(Math.cos(sem), 0.15, Math.sin(sem)).normalize() : null;

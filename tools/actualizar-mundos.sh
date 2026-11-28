@@ -27,7 +27,7 @@ fi
 
 # Módulos de dibujo y núcleo (los mismos que carga el visor) y el generador de pueblos que pueblos3d.js carga al acercarse
 JS="escenario-core.js rally-disenado.js escena-3d.js vegetacion.js pradera.js pradera-atlas.js rocas.js agua.js suelos.js pueblos3d.js
-    texturas-lib.js almacen.js casa-madera.js puestos-datos.js three-puente.js arboles.js pueblo-edits.js casas-glb.js village-core.js"
+    texturas-lib.js almacen.js casa-madera.js puestos-datos.js three-puente.js arboles.js pueblo-edits.js casas-glb.js village-core.js cielo-foto.js"
 # Modelos: árboles, casas y piezas del pueblo, edificios (la iglesia) y puentes
 GLB="arboles pueblo edificios puente0.glb puente1.glb puente3.glb muelle_riotinto_odiel_juego_web.glb muelle_recto_juego_web.glb muelle_curvo_juego_web.glb"
 
