@@ -1,6 +1,6 @@
 Copia de Mundos- (https://github.com/narcimarquez-eng/Mundos-) hecha con tools/actualizar-mundos.sh
-Fecha: 2026-11-28T13:14Z
-Commit: f4799ac4dab65368f735426ddaa4d587cba86fe5
+Fecha: 2026-11-28T13:48Z
+Commit: eb04a4e07710c681989e8c506158623209543024
 Rama: claude/world-generator-viewer-kk0hn3
-Último cambio: Cielo con fotos 360° de nubes reales
+Último cambio: Etapa «Cañón de los Riscos», formas de relieve para circuitos, luz del cielo y sombras de nubes
 No edites estos archivos aquí: los cambios se hacen en Mundos- y se vuelven a copiar.

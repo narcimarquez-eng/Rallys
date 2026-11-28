@@ -148,9 +148,59 @@
   //  { tipo: 'cresta', puntos, ancho, alto }                             sierra a lo largo de una línea
   //  { tipo: 'vaguada', puntos, ancho, hondo }                           valle a lo largo de una línea
   //  { tipo: 'inclinar', hacia (grados, 0 = +z), pendiente }             todo el terreno, en rampa
-  function modelarTerreno(esc, formas) {
+  // Relieve llamativo (paredes verticales, medidas en metros):
+  //  { tipo: 'canon', puntos | ruta: [desde, hasta] (fracciones de la vuelta: sigue la carretera), ancho (media anchura
+  //    del fondo plano), paredes (m que ocupan las paredes), hondo, repisas, rampa (m en cada extremo para bajar y subir) }
+  //  { tipo: 'mesa', x, z, radio (o rx, rz y giro), alto, pared (m, ~vertical), talud (m de derrubios al pie), irregular }
+  //  { tipo: 'acantilado', puntos, alto, pared, lado (+1 / −1: qué lado de la línea queda abajo) }
+  //    o { tipo: 'acantilado', ruta: [desde, hasta], aparte (m a la izquierda de la marcha; − derecha), alto, pared }:
+  //    el borde va junto a la carretera y el lado bajo es el contrario a ella
+  function modelarTerreno(esc, formas, ruta) {
     const t = esc.terreno, r = t.res, p = E.paso(esc), m = t.tam / 2;
+    const N = E.crearRuido(((t.gen && t.gen.semilla) || 7) * 131 + 17);
     const prep = formas.map(f => {
+      if (f.tipo === 'canon') {
+        let puntos = f.puntos;
+        if (!puntos && f.ruta && ruta) { // el tramo de la carretera entre esas fracciones de la vuelta
+          const mu = E.muestrearCamino({ puntos: ruta, cerrado: true }, 4), L = mu[mu.length - 1].d;
+          const a = f.ruta[0] * L, b = (f.ruta[1] < f.ruta[0] ? f.ruta[1] + 1 : f.ruta[1]) * L;
+          puntos = [];
+          for (let d = a; d <= b; d += 12) puntos.push(E.puntoEnD(mu, d % L, true));
+        }
+        const largo = E.muestrearCamino({ puntos, cerrado: false }, 4);
+        return Object.assign({ dist: campoDistancia(puntos, false, (f.ancho + f.paredes) * 1.4), largo: largo[largo.length - 1].d }, f);
+      }
+      if (f.tipo === 'acantilado') {
+        let puntos = f.puntos, lado = f.lado || 1;
+        if (!puntos && f.ruta && ruta) {
+          // el borde va paralelo a la carretera, a «aparte» metros (+ a la izquierda de la marcha), y sigue recto
+          // 600 m más allá de cada extremo; el lado bajo es el contrario al de la carretera
+          const mu = E.muestrearCamino({ puntos: ruta, cerrado: true }, 4), L = mu[mu.length - 1].d;
+          const a = f.ruta[0] * L, b = (f.ruta[1] < f.ruta[0] ? f.ruta[1] + 1 : f.ruta[1]) * L;
+          const en = enCamino(mu, true);
+          puntos = [];
+          for (let d = a; d <= b; d += 10) { const q = en(d % L); puntos.push({ x: q.x + q.nx * f.aparte, z: q.z + q.nz * f.aparte }); }
+          const q = en(((a + b) / 2) % L), A = puntos[Math.floor(puntos.length / 2)], B = puntos[Math.floor(puntos.length / 2) + 1];
+          lado = -(Math.sign((B.x - A.x) * (q.z - A.z) - (B.z - A.z) * (q.x - A.x)) || 1);
+          // prolongación de cada extremo: sigue la dirección del borde pero se tuerce hacia el lado bajo (lejos de la carretera)
+          const ext = (p0, p1, sentido) => {
+            const l = Math.hypot(p0.x - p1.x, p0.z - p1.z) || 1, tx = (p0.x - p1.x) / l, tz = (p0.z - p1.z) / l;
+            const vx = tx * sentido, vz = tz * sentido, nx = -vz * lado, nz = vx * lado; // normal hacia el lado bajo (v: sentido del borde)
+            const out = [];
+            for (const [k, c] of [[0.5, 0.25], [1, 0.6], [1.6, 0.9]]) out.push({ x: p0.x + (tx * (1 - c) + nx * c) * 250 * k, z: p0.z + (tz * (1 - c) + nz * c) * 250 * k });
+            return out;
+          };
+          const ini = ext(puntos[0], puntos[1], -1), fin = ext(puntos[puntos.length - 1], puntos[puntos.length - 2], 1);
+          puntos = ini.reverse().concat(puntos, fin);
+        }
+        const segs = [];
+        for (let k = 0; k + 1 < puntos.length; k++) segs.push([puntos[k], puntos[k + 1]]);
+        return Object.assign({ segs }, f, { lado });
+      }
+      if (f.tipo === 'mesa') {
+        const g = (f.giro || 0) * RAD;
+        return Object.assign({ c: Math.cos(g), s: Math.sin(g), rx: f.rx || f.radio, rz: f.rz || f.radio }, f);
+      }
       if (f.puntos) return Object.assign({ dist: campoDistancia(f.puntos, f.cerrado, (f.ancho || 60) * 2.2) }, f);
       if (f.tipo === 'colina' || f.tipo === 'meseta') {
         const g = (f.giro || 0) * RAD;
@@ -181,6 +231,40 @@
             break;
           }
           case 'inclinar': { const a = f.hacia * RAD; h += (x * Math.sin(a) + z * Math.cos(a)) * f.pendiente; break; }
+          case 'canon': {
+            const q = f.dist(x, z); if (q.d === Infinity || !q.m) break;
+            // paredes algo irregulares (entrantes y salientes) y repisas que no son curvas de nivel perfectas
+            const dq = q.d + N.fbm(x / 45, z / 45, 3) * f.paredes * 0.22;
+            if (dq >= f.ancho + f.paredes) break;
+            const R = f.rampa || 0, dd = q.m.d;
+            const k = R > 0 ? Math.min(suave(dd / R), suave((f.largo - dd) / R)) : 1;
+            const prof = 1 - E.perfilEscalones((dq - f.ancho) / f.paredes, f.repisas || 3);
+            h -= f.hondo * k * prof;
+            break;
+          }
+          case 'mesa': {
+            const dx = x - f.x, dz = z - f.z, lx = (dx * f.c - dz * f.s) / f.rx, lz = (dx * f.s + dz * f.c) / f.rz;
+            const R = Math.sqrt(f.rx * f.rz), dn = Math.hypot(lx, lz);
+            if (dn > 1 + ((f.talud || 25) + 40) / R) break;
+            const dentro = (1 - dn) * R + N.fbm(x / 40 + 9.1, z / 40 - 3.3, 3) * R * 0.12 * (f.irregular == null ? 1 : f.irregular);
+            const pared = f.pared || 4, talud = f.talud || 25;
+            h += f.alto * (0.86 * suave((dentro + pared / 2) / pared) + 0.14 * suave((dentro + talud) / talud))
+              + (dentro > 0 ? N.fbm(x / 25, z / 25, 2) * 1.2 : 0);
+            break;
+          }
+          case 'acantilado': {
+            let best = Infinity, lado = 0;
+            for (const [a, b] of f.segs) {
+              const vx = b.x - a.x, vz = b.z - a.z, L2 = vx * vx + vz * vz || 1;
+              const u = clamp(((x - a.x) * vx + (z - a.z) * vz) / L2, 0, 1);
+              const d = Math.hypot(x - a.x - vx * u, z - a.z - vz * u);
+              if (d < best) { best = d; lado = Math.sign(vx * (z - a.z) - vz * (x - a.x)) || 1; }
+            }
+            const pared = f.pared || 5;
+            const s0 = best * lado * (f.lado || 1) + N.fbm(x / 50 - 4.4, z / 50 + 7.7, 3) * pared * 1.6;   // > 0: lado bajo
+            h -= f.alto * (0.85 * suave((s0 + pared / 2) / pared) + 0.15 * suave(s0 / 60));
+            break;
+          }
         }
       }
       t.alturas[j * r + i] += h;
@@ -321,9 +405,11 @@
     // Relieve: base suave (solo detalle) + formas del diseño
     // (el diseño es fijo: las semillas salen de él, no de la del escenario)
     E.generarTerreno(esc, Object.assign({ tipo: 'colinas', escala: 260, altura: 8, octavas: 5, semilla: D.semilla || 7 }, D.relieve.base || {}));
-    modelarTerreno(esc, D.relieve.formas || []);
-    // Trazado
+    if (D.rocaPared) T.rocaPared = D.rocaPared;
+    // Trazado (antes que el relieve: un cañón puede seguir la carretera)
     const tr = trazarRuta(D.ruta), avisos = tr.avisos.slice();
+    modelarTerreno(esc, D.relieve.formas || [], tr.puntos);
+    if (D.relieve.riscos) E.riscosEnLaderas(esc, D.relieve.riscos, D.semilla || 7);
     const cam = Object.assign({ tipo: 'grava', ancho: 10, bordes: false }, D.camino);
     const c = E.crearCamino(esc, { tipo: cam.tipo, ancho: cam.ancho, cerrado: true, bordes: cam.bordes, puntos: tr.puntos, nombre: D.nombreCamino || 'Tramo' });
     const mu0 = E.muestrearCamino(c, 2), total = mu0[mu0.length - 1].d;
@@ -457,6 +543,7 @@
     for (const o of D.bosques || []) crearEl(esc, 'bosque', o.x, o.z, Object.assign({ especie: 'mixto', densidad: 6, nombre: 'Bosque' }, o));
     for (const o of D.rocas || []) crearEl(esc, 'rocas', o.x, o.z, Object.assign({ cantidad: 12, tamMin: 0.8, tamMax: 3, nombre: 'Rocas' }, o));
     for (const o of D.arboles || []) crearEl(esc, 'arbol', o.x, o.z, o);
+    for (const o of D.riscos || []) crearEl(esc, 'riscos', o.x, o.z, Object.assign({ radio: 50, cantidad: 5, altoMin: 6, altoMax: 18, piedra: 'auto', pendiente: true, nombre: 'Riscos', semilla: 1 + E.hashTexto(esc.plantilla + ':r' + esc.nextId) % 99998 }, o));
     for (const o of D.carteles || []) { const q = en(o.en * total), s = o.lado || 1, el = crearEl(esc, 'cartel', q.x + q.nx * s * (cam.ancho / 2 + 3), q.z + q.nz * s * (cam.ancho / 2 + 3), { texto: o.texto, color: o.color || '#8b5a2b' }); el.rotY = Math.round(q.rot + 180); }
     for (const o of D.vistas || []) { const v = crearEl(esc, 'camara', o.x, o.z, { altura: o.altura || 30, inclinacion: o.inclinacion || -18, nombre: o.nombre || 'Vista' }); v.rotY = o.rotY || 0; }
     E.olvidarRango(esc);
@@ -716,6 +803,73 @@
       { x: -300, z: 300, radio: 60, cantidad: 30, tamMin: 1.5, tamMax: 6, piedra: 'estratos', forma: 'bloque' },
       { x: 600, z: 240, radio: 50, cantidad: 24, tamMin: 1.5, tamMax: 5, piedra: 'estratos', forma: 'losa' }
     ]
+  });
+
+  // Cañón de los Riscos: la salida en el altiplano, la bajada por una rampa al fondo de un cañón de paredes en escalones
+  // que la carretera recorre entero (con riscos y agujas en las repisas), la subida por el otro extremo, las mesas de
+  // paredes verticales con la horquilla entre ellas y la vuelta por el borde de un acantilado de 40 m, con guardarraíl.
+  registrarCircuito({
+    id: 'rally_riscos', nombre: 'Cañón de los Riscos', icono: '🏞', tam: 1536, res: 513, bioma: 'desierto', cotaNieve: 9999,
+    desc: 'Al caer la tarde: bajada al fondo de un cañón de paredes en escalones, mesas y agujas de roca, una horquilla entre riscos y la vuelta por el borde de un acantilado de 40 m.',
+    ambiente: { hora: 17.0, niebla: 0.2, nubes: 0.3, cielo: 'foto' },
+    hierbaAuto: 0.12, rocaPared: 'mezcla', semilla: 31,
+    relieve: {
+      base: { tipo: 'colinas', escala: 260, altura: 9, octavas: 5, base: 40 },
+      riscos: 0.55,
+      formas: [
+        // el cañón: sigue la carretera desde la salida hasta la subida del otro lado
+        { tipo: 'canon', ruta: [0.015, 0.4], ancho: 24, paredes: 36, hondo: 46, repisas: 3, rampa: 320 },
+        // un cañón lateral, sin carretera, que se abre al sur
+        { tipo: 'canon', puntos: [{ x: -150, z: 250 }, { x: -110, z: 420 }, { x: -210, z: 600 }, { x: -160, z: 800 }], ancho: 12, paredes: 26, hondo: 40, repisas: 2 },
+        { tipo: 'canon', puntos: [{ x: 420, z: 260 }, { x: 470, z: 420 }, { x: 600, z: 560 }, { x: 640, z: 800 }], ancho: 10, paredes: 22, hondo: 34, repisas: 2 },
+        // mesas y una aguja grande en el altiplano
+        { tipo: 'mesa', x: 150, z: -330, rx: 120, rz: 80, giro: 15, alto: 38, pared: 4, talud: 30 },
+        { tipo: 'mesa', x: 150, z: -330, rx: 70, rz: 45, giro: 15, alto: 16, pared: 3, talud: 10 },
+        { tipo: 'mesa', x: -200, z: -300, rx: 140, rz: 90, giro: -20, alto: 30, pared: 4, talud: 30 },
+        { tipo: 'mesa', x: -20, z: -110, radio: 40, alto: 62, pared: 3, talud: 22 },
+        { tipo: 'mesa', x: 540, z: -430, radio: 55, alto: 46, pared: 3, talud: 24 },
+        { tipo: 'mesa', x: 300, z: -10, radio: 45, alto: 30, pared: 3, talud: 20 },
+        { tipo: 'mesa', x: 250, z: 520, rx: 130, rz: 90, giro: 30, alto: 34, pared: 4, talud: 26 },
+        { tipo: 'mesa', x: -500, z: 520, radio: 90, alto: 40, pared: 4, talud: 26 },
+        // el acantilado del norte: la carretera va por arriba, junto al borde
+        { tipo: 'acantilado', ruta: [0.6, 0.83], aparte: -17, alto: 42, pared: 5 }
+      ]
+    },
+    ruta: { transicion: 18, vertices: [
+      { x: -640, z: 40, r: 60 }, { x: -560, z: 210, r: 90 }, { x: -280, z: 240, r: 160 }, { x: 0, z: 200, r: 140 },
+      { x: 280, z: 250, r: 150 }, { x: 560, z: 200, r: 90 }, { x: 660, z: 20, r: 60 }, { x: 600, z: -260, r: 70 },
+      { x: 430, z: -170, r: 22 }, { x: 380, z: -300, r: 22 }, { x: 300, z: -480, r: 70 }, { x: 0, z: -540, r: 160 },
+      { x: -300, z: -500, r: 120 }, { x: -560, z: -420, r: 60 }, { x: -470, z: -200, r: 45 }, { x: -660, z: -120, r: 60 } ] },
+    camino: { tipo: 'grava', ancho: 10, suavizado: 40, margen: 14 },
+    rasante: [{ en: 0.44, alto: 2.2, largo: 34 }, { en: 0.72, alto: 1.8, largo: 40 }],
+    tramos: [{ desde: 0.1, hasta: 0.32, tipo: 'arena' }, { desde: 0.6, hasta: 0.86, tipo: 'tierra' }],
+    controles: [0.14, 0.3, 0.52, 0.7, 0.88],
+    barreras: { cerrada: 'neumaticos', rapida: 'balas_paja', caida: 'guardarrail', salida: 'neumaticos', publi: 'valla_publi' },
+    publico: [0.05, 0.53],
+    barrerasExtra: [{ tipo: 'guardarrail', lado: 'izq', desde: 0.595, hasta: 0.835, separacion: 0.8 }],   // el borde del acantilado
+    arcenes: 9,
+    bosques: [
+      { x: -100, z: 230, radio: 60, especie: 'palmera_datilera', densidad: 2, holgura: 6, rocas: 0.2 },
+      { x: 420, z: 220, radio: 50, especie: 'palmera_datilera', densidad: 1.5, holgura: 6, rocas: 0.2 },
+      { x: -350, z: -50, radio: 140, especie: 'cactus', densidad: 1.2, holgura: 5, rocas: 0.3 },
+      { x: 420, z: 420, radio: 140, especie: 'cactus', densidad: 1, holgura: 5, rocas: 0.3 },
+      { x: 200, z: -660, radio: 120, especie: 'seco', densidad: 1.2, holgura: 5 }
+    ],
+    riscos: [
+      { x: -280, z: 175, radio: 45, cantidad: 4, altoMin: 8, altoMax: 22 }, { x: -260, z: 300, radio: 45, cantidad: 4, altoMin: 8, altoMax: 22 },
+      { x: 0, z: 140, radio: 45, cantidad: 4, altoMin: 8, altoMax: 24 }, { x: 10, z: 262, radio: 45, cantidad: 4, altoMin: 8, altoMax: 24 },
+      { x: 280, z: 190, radio: 45, cantidad: 4, altoMin: 8, altoMax: 22 }, { x: 260, z: 310, radio: 45, cantidad: 4, altoMin: 8, altoMax: 22 },
+      { x: 150, z: -330, radio: 130, cantidad: 8, altoMin: 6, altoMax: 18 }, { x: -200, z: -300, radio: 150, cantidad: 8, altoMin: 6, altoMax: 18 },
+      { x: 540, z: -430, radio: 70, cantidad: 4, altoMin: 8, altoMax: 20 }, { x: -20, z: -110, radio: 60, cantidad: 3, altoMin: 10, altoMax: 26 },
+      { x: 0, z: -600, radio: 120, cantidad: 7, altoMin: 6, altoMax: 16 }, { x: -380, z: -560, radio: 100, cantidad: 6, altoMin: 6, altoMax: 16 }
+    ],
+    rocas: [
+      { x: -120, z: 220, radio: 40, cantidad: 30, tamMin: 1, tamMax: 4, piedra: 'ocre', forma: 'partida', holgura: 6 },
+      { x: 180, z: 220, radio: 40, cantidad: 30, tamMin: 1, tamMax: 4, piedra: 'estratos', forma: 'bloque', holgura: 6 },
+      { x: 400, z: -250, radio: 60, cantidad: 20, tamMin: 2, tamMax: 6, piedra: 'ocre', forma: 'aguja', holgura: 9 },
+      { x: -450, z: -320, radio: 60, cantidad: 25, tamMin: 1, tamMax: 5, piedra: 'estratos', forma: 'risco', holgura: 9 }
+    ],
+    vistas: [{ x: -40, z: 320, altura: 20, inclinacion: -25, nombre: 'Mirador del cañón', rotY: 180 }]
   });
 
   Object.assign(E, { trazarRuta, curvaturas, modelarTerreno, barrerasSegunTrazado, construirCircuito, registrarCircuito, CIRCUITOS });

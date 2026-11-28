@@ -575,6 +575,10 @@
 
   // Riscos en las laderas altas y empinadas: bandas de roca con paredes verticales (escalones de la ladera) y
   // peñascos que asoman. riscos: 0–1. Solo donde ya hay pendiente y altura, así los valles y llanos no cambian.
+  // Riscos en las laderas de un escenario ya hecho (los circuitos diseñados los ponen después de modelar el relieve)
+  function riscosEnLaderas(esc, fuerza, semilla) {
+    ponerRiscos(esc, crearRuido((semilla || (esc.terreno.gen && esc.terreno.gen.semilla) || 1) * 7919 + 13), fuerza);
+  }
   function ponerRiscos(esc, N, fuerza) {
     const t = esc.terreno, r = t.res, h = t.alturas, p = paso(esc), m = t.tam / 2;
     const orig = h.slice();
@@ -2060,7 +2064,7 @@
   }
 
   const API = {
-    FORMATO, VERSION, RPG_BASE, MATERIALES, MATERIAL_PIEDRA, ROCAS_PARED, piedraPared, BIOMAS, TIPOS, GRUPOS, PLANTILLAS, TIPOS_TERRENO, TIPOS_CAMINO, ESPECIES, ESTILOS_PUEBLO, ARBOLES_GLB, MEZCLA_BIOMA, registrarArbolGlb,
+    FORMATO, VERSION, RPG_BASE, MATERIALES, MATERIAL_PIEDRA, ROCAS_PARED, piedraPared, riscosEnLaderas, perfilEscalones, BIOMAS, TIPOS, GRUPOS, PLANTILLAS, TIPOS_TERRENO, TIPOS_CAMINO, ESPECIES, ESTILOS_PUEBLO, ARBOLES_GLB, MEZCLA_BIOMA, registrarArbolGlb,
     mulberry32, crearAzar, crearRuido, hashTexto, clamp, lerp,
     registrarTipo, registrarPlantilla, leerRuta, escribirRuta, cfgPuebloPorDefecto, radioPueblo,
     crearVacio, crear, generarTerreno, paso, idx, xDe, aRejilla, dentro, alturaEn, sueloEn, pendienteIdx, rangoAlturas, rangoCache, olvidarRango,

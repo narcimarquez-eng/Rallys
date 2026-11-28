@@ -135,14 +135,15 @@ export function actualizarMezcla(mezcla, esc, reg, rango) {
 
 export function materialTerreno(suelos, mezcla, esc) {
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
-  const u = { uCapas: { value: suelos.capas }, uMezcla: { value: mezcla }, uTam: { value: esc.terreno.tam }, uRes: { value: esc.terreno.res }, uEscala: { value: ESCALA_TERRENO } };
+  const u = { uCapas: { value: suelos.capas }, uMezcla: { value: mezcla }, uTam: { value: esc.terreno.tam }, uRes: { value: esc.terreno.res }, uEscala: { value: ESCALA_TERRENO },
+    uTiempo: { value: 0 }, uSombraNubes: { value: 0 } };
   m.userData.u = u;
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, u);
     sh.vertexShader = 'varying vec3 vPosMundo;\nvarying vec3 vNormMundo;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vPosMundo = (modelMatrix * vec4(transformed, 1.0)).xyz;\n vNormMundo = normalize(mat3(modelMatrix) * objectNormal);');
     sh.fragmentShader = `varying vec3 vPosMundo; varying vec3 vNormMundo;
       uniform highp sampler2DArray uMezcla;
-      uniform float uTam, uRes, uEscala;
+      uniform float uTam, uRes, uEscala, uTiempo, uSombraNubes;
       ${GLSL_CAPA}
     ` + sh.fragmentShader.replace('#include <map_fragment>', `
       {
@@ -171,9 +172,15 @@ export function materialTerreno(suelos, mezcla, esc) {
         // estratos: franjas horizontales algo onduladas en las paredes
         float estrato = 0.86 + 0.2 * smoothstep(-0.4, 0.4, sin(vPosMundo.y * 0.55 + ruidoSuelo(q * 0.03) * 5.0)) + 0.06 * sin(vPosMundo.y * 2.1);
         diffuseColor.rgb *= mix(1.0, estrato, pared);
+        // sombras de las nubes que pasan (manchas grandes que se mueven con el viento)
+        if (uSombraNubes > 0.01) {
+          vec2 qn = q * 0.0035 + uTiempo * vec2(0.012, 0.005);
+          float nn = ruidoSuelo(qn) * 0.55 + ruidoSuelo(qn * 2.3 + 5.1) * 0.3 + ruidoSuelo(qn * 5.2 - 2.7) * 0.15;
+          diffuseColor.rgb *= mix(1.0, 0.6, smoothstep(0.5, 0.66, nn) * uSombraNubes);
+        }
       }`);
   };
-  m.customProgramCacheKey = () => 'terreno-capas-4';
+  m.customProgramCacheKey = () => 'terreno-capas-5';
   return m;
 }
 

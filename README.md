@@ -78,8 +78,8 @@ posiciones van directas entre jugadores (WebRTC) y la sala usa el mismo Supabase
 
 ## Circuitos
 
-Cinco circuitos **diseñados a mano** en Mundos- (`vendor/mundos/js/rally-disenado.js`; plantillas `rally_campos`,
-`rally_puerto`, `rally_boreal`, `rally_tabernas` y `rally_acantilados`), más los dos de antes, hechos con la
+Seis circuitos **diseñados a mano** en Mundos- (`vendor/mundos/js/rally-disenado.js`; plantillas `rally_campos`,
+`rally_puerto`, `rally_boreal`, `rally_tabernas`, `rally_acantilados` y `rally_riscos`), más los dos de antes, hechos con la
 plantilla «rally» aleatoria:
 
 | Circuito | Largo | Desnivel | Carácter |
@@ -89,6 +89,7 @@ plantilla «rally» aleatoria:
 | 🌲 Bosque Boreal | 3,8 km | 12 m | Nieve entre pinsapos, curvas enlazadas y cuatro lomos para volar, puente de madera, vado y aldea nórdica. |
 | 🏜 Rambla de Tabernas | 4,2 km | 7 m | Tres saltos en las dunas, el oasis con su poblado, el cañón entre dos mesetas de roca y la rambla seca. |
 | 🌊 Costa de los Acantilados | 3,2 km | 45 m | Asfalto al borde del acantilado sobre el mar, puente de hierro sobre la cala y vuelta por grava entre pinos piñoneros. |
+| 🏞 Cañón de los Riscos | 3,7 km | 46 m | Al caer la tarde: bajada por una rampa al fondo de un cañón de paredes en escalones (riscos y agujas en las repisas), subida por el otro extremo, mesas de paredes verticales con una horquilla entre ellas y la vuelta por el borde de un acantilado de 40 m con guardarraíl. |
 
 Qué tienen en común (lo que hace que se jueguen bien):
 - **Ritmo**: rectas que acaban en frenadas fuertes, curvas de transición (sin cambios bruscos de volante), eses,

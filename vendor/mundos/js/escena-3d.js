@@ -878,6 +878,7 @@ export class Escena3D {
     this.scene.fog.color.copy(niebla);
     this.scene.background = niebla.clone();
     this._dia = dia; this._ocaso = ocaso;
+    if (this._ajustarLuzCielo) this._ajustarLuzCielo();
     this.cieloFoto.ajustar(dia, ocaso, sun, niebla);
     this._mostrarCielo();
     this.renderer.toneMappingExposure = 0.3 + 0.25 * dia;
@@ -894,6 +895,19 @@ export class Escena3D {
     const foto = this.modoCielo === 'foto';
     this.cieloFoto.malla.visible = foto;
     this.cielo.visible = !foto && (this._dia == null ? 1 : this._dia) > 0.02;
+  }
+  // Fuerza de las sombras de nubes (0–1): con el cielo de fotos, siempre algo; con el calculado, según sus nubes; de
+  // noche, nada. ambiente.sombrasNubes (0–1) la escala; false las quita.
+  _sombraNubes() {
+    const a = this.esc && this.esc.ambiente;
+    if (!a || a.sombrasNubes === false || this.o.sombrasNubes === false) return 0;
+    const base = this.modoCielo === 'foto' ? 0.8 : Math.min(1, (a.nubes == null ? 0.4 : a.nubes) * 1.6);
+    return base * (a.sombrasNubes == null ? 1 : +a.sombrasNubes) * (this._dia == null ? 1 : this._dia);
+  }
+  _ajustarLuzCielo() {
+    if (!this.scene.environment) return;
+    const dia = this._dia == null ? 1 : this._dia;
+    this.scene.environmentIntensity = 0.12 + 0.28 * dia;   // el cielo aclara las caras a la sombra sin quemar el resto
   }
   setNubes(n) { // 0–1
     const u = this.cielo.material.uniforms;
@@ -1356,12 +1370,18 @@ export class Escena3D {
     this.reloj += dt;
     if (camara) { this.vegetacion.actualizar(camara, dt); this.pradera.actualizar(camara, dt); this._pueblosCerca(camara, dt); }
     this.tiempoAgua.value += dt;
-    // reflejo del cielo en el agua: se rehace al cambiar la hora (como mucho cada 1,5 s)
-    if (this.matsAgua.length && this._entornoPendiente && this.reloj - (this._tEntorno || -9) > 1.5) {
+    // el cielo hecho mapa de entorno: reflejo del agua y luz ambiente del cielo para el terreno, las rocas y los árboles
+    // (los coches del juego llevan su propio envMap). Se rehace al cambiar la hora (como mucho cada 1,5 s)
+    const luzCielo = this.o.luzCielo !== false;
+    if ((this.matsAgua.length || luzCielo) && this._entornoPendiente && this.reloj - (this._tEntorno || -9) > 1.5) {
       this._entornoPendiente = false; this._tEntorno = this.reloj;
       const tex = this.entornoAgua.actualizar(this.cielo, this.scene.fog.color, false, this.modoCielo === 'foto' ? this.cieloFoto : null);
       for (const m of this.matsAgua) { if (!m.envMap) m.needsUpdate = true; m.envMap = tex; }
+      if (luzCielo) { this.scene.environment = tex; this._ajustarLuzCielo(); }
     }
+    // sombras de nubes en el terreno
+    const uT = this.terreno && this.terreno.material && this.terreno.material.userData.u;
+    if (uT && uT.uTiempo) { uT.uTiempo.value = this.reloj; uT.uSombraNubes.value = this._sombraNubes(); }
     if (this.cielo.material.uniforms.time) this.cielo.material.uniforms.time.value = this.reloj;
     for (const m of this.mezcladores) m.update(dt);
     this.gElementos.traverse(o => { if (o.userData.girar) o.rotation.y += dt * 2; });

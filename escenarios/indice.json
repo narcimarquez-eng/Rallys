@@ -53,5 +53,13 @@
     "icono": "🌳",
     "archivo": "escenarios/valle-encinas.escenario.json",
     "desc": "Otro circuito (semilla 123, al atardecer), con dos puentes y un vado, exportado desde Mundos- como .escenario.json."
+  },
+  {
+    "id": "riscos",
+    "nombre": "Cañón de los Riscos",
+    "icono": "🏞",
+    "plantilla": "rally_riscos",
+    "semilla": 1,
+    "desc": "Al caer la tarde: bajada al fondo de un cañón de paredes en escalones, mesas y agujas de roca, una horquilla entre riscos y la vuelta por el borde de un acantilado de 40 m."
   }
 ]
